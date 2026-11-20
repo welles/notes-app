@@ -13,6 +13,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -66,6 +68,14 @@ class SyncController(
     private var retryJob: Job? = null
     private var failures = 0
 
+    // Triggers are coalesced: while a sync runs, at most one more is queued.
+    private val triggers = MutableSharedFlow<Unit>(extraBufferCapacity = 1, onBufferOverflow = BufferOverflow.DROP_OLDEST)
+
+    init {
+        scope.launch { triggers.collect { syncNow() } }
+    }
+
+
     init {
         scope.launch { outbox.observeCount().collect { n -> _state.value = _state.value.copy(pending = n) } }
         scope.launch { outbox.observeWaitingCount().collect { n -> _state.value = _state.value.copy(waitingForServer = n) } }
@@ -79,10 +89,13 @@ class SyncController(
 
     private suspend fun stateDaoLastSync() = stateDao.get(SyncEngine.KEY_LAST_SYNC)
 
-    /** Fire-and-forget trigger (app start, focus, local change, pull-to-refresh). */
+    /** Fire-and-forget trigger (app start, focus, local change, pull-to-refresh, live hint). */
     fun requestSync() {
-        scope.launch { syncNow() }
+        triggers.tryEmit(Unit)
     }
+
+    /** Server version this device has fully pulled. */
+    suspend fun cursor(): Long = stateDao.get(SyncEngine.KEY_CURSOR)?.toLongOrNull() ?: 0
 
     /** Runs one sync now; returns true on success. Used by background workers too. */
     suspend fun syncNow(): Boolean = mutex.withLock {

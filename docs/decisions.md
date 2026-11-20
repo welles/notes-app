@@ -123,4 +123,15 @@ Kurz und knapp, neueste unten.
 
 - **Export** über `GET /api/export` (alle Typen über den generischen Pull, nur nicht gelöschte Entitäten, gruppiert nach Typ) – kein modulspezifischer Code; Download-Symbol in der App-Bar.
 - **Kompatibilität über Versionen**: `RealServerSyncTest` (echte Sync-Engine, echter Server, nur mit `-Pnotes.e2eServer`) + `scripts/compat-e2e.sh` für beliebige Ref-Paare (Git-Worktrees). Ältere Client-Tags ohne diesen Test werden übersprungen.
-- **Live-Sync in den Clients (SSE/WebSocket)** ist laut Spec „nach Rücksprache“ und daher nicht umgesetzt.
+
+## Live-Sync (nach Rücksprache ergänzt)
+
+- **Server-Sent Events statt WebSocket**: nur Server→Client nötig, läuft als normales HTTP durch Cloudflare, einfach in Ktor und ASP.NET Core.
+- **Der Stream trägt keine Daten**, nur „neueste Version = N“ (beim Verbinden sofort, danach bei jeder Änderung). Der Client synchronisiert über den normalen Pull, wenn N über seinem Cursor liegt – damit gelten dieselben Regeln, und eigene Pushes lösen keinen zweiten Sync aus.
+- **Heartbeat alle 25 s** (SSE-Kommentar), weil Cloudflare inaktive Verbindungen nach ~100 s trennt; der Client erkennt tote Verbindungen über einen Socket-Timeout von 90 s.
+- **Beim Herunterfahren beendet der Server die Streams sofort** (`ApplicationStopping`); sonst hielt Kestrel sie bis zum Shutdown-Timeout offen und die Clients hingen am alten Prozess.
+- **Wiederverbinden mit Backoff 1 s → max. 10 s.** Gemessen: erste Änderung nach ~11 s Serverausfall nach ~4 s zugestellt; mit 60 s Maximum waren es 12–16 s.
+- **Sync-Anstöße werden zusammengefasst** (während ein Sync läuft, höchstens einer in der Warteschlange).
+- **Android nur im Vordergrund** (ProcessLifecycleOwner start/stop), Hintergrund weiter über WorkManager. **Desktop immer**, weil die Post-it-Fenster ständig sichtbar sind.
+- **Fähigkeit `sync.events` in `meta`**: Clients verbinden sich nur, wenn der Server sie meldet – ältere Server bleiben beim Polling.
+- **Nicht gemessen**: Latenz und Verhalten über den echten Cloudflare-Tunnel (würde eine öffentliche Test-URL erfordern).

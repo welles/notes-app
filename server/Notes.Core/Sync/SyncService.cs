@@ -48,6 +48,13 @@ public sealed class SyncService(
         return new PullResponse(envelopes, rows.Count > 0 ? rows[^1].Version : since, hasMore, false);
     }
 
+    /// <summary>Highest version assigned so far (what a fully synced client's cursor would be at most).</summary>
+    public async Task<long> GetLatestVersionAsync(CancellationToken ct = default)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        return await db.SyncState.AsNoTracking().Select(s => s.LastVersion).SingleAsync(ct);
+    }
+
     public async Task<SyncEnvelope?> GetAsync(EntityRef reference, CancellationToken ct = default)
     {
         if (handlers.Find(reference.EntityType) is not { } handler) return null;

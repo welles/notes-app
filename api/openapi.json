@@ -27,6 +27,20 @@
         }
       }
     },
+    "/api/sync/events": {
+      "get": {
+        "tags": [
+          "Sync"
+        ],
+        "summary": "Server-Sent Events: 'changed' with the latest version whenever data changes; comment heartbeats every 25 s.",
+        "operationId": "SyncEvents",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
     "/api/export": {
       "get": {
         "tags": [
@@ -525,10 +539,10 @@
       "name": "Meta"
     },
     {
-      "name": "Export"
+      "name": "Sync"
     },
     {
-      "name": "Sync"
+      "name": "Export"
     }
   ]
 }

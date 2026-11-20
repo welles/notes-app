@@ -11,6 +11,12 @@ import io.ktor.client.HttpClient
 import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.plugins.defaultRequest
+import io.ktor.client.plugins.sse.SSE
+import io.ktor.client.plugins.sse.sse
+import io.ktor.client.plugins.timeout
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.flow
 import io.ktor.client.request.HttpRequestBuilder
 import io.ktor.client.request.get
 import io.ktor.client.request.header
@@ -38,6 +44,9 @@ interface NotesApi {
     suspend fun meta(): MetaResponse
     suspend fun pull(since: Long, limit: Int): PullResponse
     suspend fun push(changes: List<PushEnvelope>): PushResponse
+
+    /** Live hints (capability `sync.events`): the latest server version, first on connect, then on every change. */
+    fun events(): Flow<Long> = emptyFlow()
 }
 
 /** Ktor implementation. Redirects are not followed: Cloudflare's login redirect must surface as [ApiException.Unauthorized]. */
@@ -47,6 +56,7 @@ class KtorNotesApi(private val config: ServerConfig, private val client: ClientI
         expectSuccess = false
         install(ContentNegotiation) { json(NotesJson) }
         install(HttpTimeout) { requestTimeoutMillis = 60_000; connectTimeoutMillis = 15_000 }
+        install(SSE)
         defaultRequest {
             header("Notes-Client", client.header)
             header("Notes-Protocol", PROTOCOL_VERSION.toString())
@@ -66,6 +76,22 @@ class KtorNotesApi(private val config: ServerConfig, private val client: ClientI
 
     override suspend fun push(changes: List<PushEnvelope>): PushResponse = call(PushResponse.serializer()) {
         http.post("$base/api/sync/push") { json(); setBody(PushRequest(changes)) }
+    }
+
+    override fun events(): Flow<Long> = flow {
+        try {
+            http.sse("$base/api/sync/events", request = {
+                // Open-ended stream; heartbeats every 25 s keep the socket busy, so a dead connection shows up within 90 s.
+                timeout { requestTimeoutMillis = Long.MAX_VALUE; socketTimeoutMillis = 90_000 }
+            }) {
+                incoming.collect { event ->
+                    if (event.event == "changed") event.data?.trim()?.toLongOrNull()?.let { emit(it) }
+                }
+            }
+        } catch (e: io.ktor.client.plugins.sse.SSEClientException) {
+            val status = e.response?.status?.value
+            throw if (status == 401 || status == 403 || status in 300..399) ApiException.Unauthorized("HTTP $status") else ApiException.Network(e)
+        }
     }
 
     private fun HttpRequestBuilder.json() = contentType(ContentType.Application.Json)

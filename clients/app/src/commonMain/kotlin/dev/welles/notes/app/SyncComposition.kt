@@ -2,6 +2,7 @@ package dev.welles.notes.app
 
 import dev.welles.notes.core.sync.ClientInfo
 import dev.welles.notes.core.sync.KtorNotesApi
+import dev.welles.notes.core.sync.LiveSync
 import dev.welles.notes.core.sync.SyncController
 import dev.welles.notes.core.sync.SyncEngine
 import dev.welles.notes.core.ui.SettingsSection
@@ -29,6 +30,10 @@ val syncModule = module {
             contexts = get(),
             scope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
         )
+    }
+    single {
+        val info = get<ClientInfo>()
+        LiveSync(get(), get(), { config -> KtorNotesApi(config, info) }, CoroutineScope(SupervisorJob() + Dispatchers.Default))
     }
     single { SyncIndicator(get()) } bind TopBarAction::class
     single { SyncSettingsSection(get()) } bind SettingsSection::class

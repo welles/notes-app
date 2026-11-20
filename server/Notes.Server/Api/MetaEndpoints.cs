@@ -27,7 +27,7 @@ public static class MetaEndpoints
                     ServerVersion,
                     Protocol,
                     handlers.EntityTypes.ToList(),
-                    ["sync.v1", "contexts", .. modules.Modules.Select(m => m.Key), .. targets.ConversionAvailable ? ["convert"] : Array.Empty<string>()],
+                    ["sync.v1", "sync.events", "contexts", .. modules.Modules.Select(m => m.Key), .. targets.ConversionAvailable ? ["convert"] : Array.Empty<string>()],
                     config.GetSection("Notes:MinClientVersion").GetChildren()
                         .Where(c => !string.IsNullOrWhiteSpace(c.Value))
                         .ToDictionary(c => c.Key, c => c.Value!)))

@@ -106,7 +106,9 @@ Am Handy: „QR-Code scannen“ (Google Code Scanner, braucht Google-Play-Dienst
 
 Die Zugangsdaten liegen verschlüsselt: Android über Tink mit Schlüssel im Android Keystore (nicht im Backup), Desktop im Secret Service (gnome-keyring, KWallet, KeePassXC …) über `secret-tool`; ohne Secret Service als Datei `$XDG_CONFIG_HOME/notes/credentials.json` mit Rechten 0600 (Warnung im Log).
 
-Sync läuft: Android beim Start/Vordergrund, ca. 2 s nach lokalen Änderungen, per Pull-to-Refresh und alle 15 min im Hintergrund (WorkManager, nur mit Netz); Desktop beim Start, bei Fensterfokus, nach lokalen Änderungen und alle 5 min. Fehler werden mit Backoff wiederholt.
+**Live-Sync:** Solange die App im Vordergrund ist (Desktop: solange Notes läuft), hält sie eine Server-Sent-Events-Verbindung zu `/api/sync/events`. Der Server meldet jede Änderung sofort, der Client holt sie über den normalen Pull. Gemessen lokal: ~40 ms Client↔Client, ~80–180 ms Server→App; nach einem Server-Neustart verbinden sich die Clients innerhalb weniger Sekunden neu. Über Cloudflare kommt die Netzwerk-Latenz dazu; ein Heartbeat alle 25 s hält die Verbindung durch den Tunnel offen. Ältere Server ohne Fähigkeit `sync.events` werden wie bisher nur abgefragt.
+
+Sync läuft außerdem: Android beim Start/Vordergrund, ca. 2 s nach lokalen Änderungen, per Pull-to-Refresh und alle 15 min im Hintergrund (WorkManager, nur mit Netz); Desktop beim Start, bei Fensterfokus, nach lokalen Änderungen und alle 5 min. Fehler werden mit Backoff wiederholt.
 
 Lokal gegen einen Dev-Server testen: Debug-Builds erlauben Klartext-HTTP zu `10.0.2.2` (Emulator) und `localhost` (`adb reverse tcp:5080 tcp:5080`).
 

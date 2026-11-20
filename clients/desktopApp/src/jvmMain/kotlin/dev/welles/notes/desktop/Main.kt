@@ -125,6 +125,8 @@ fun main(args: Array<String>) {
     if (sync != null) {
         sync.requestSync()
         sync.startPeriodic(5.minutes)
+        // Desktop post-its are always visible, so the live connection stays open while Notes runs.
+        koin!!.get<dev.welles.notes.core.sync.LiveSync>().start()
         stickyWindows?.start()
     }
 

@@ -19,6 +19,7 @@ import dev.welles.notes.core.sync.ClientInfo
 import dev.welles.notes.core.sync.CredentialStore
 import dev.welles.notes.core.sync.QrScanner
 import dev.welles.notes.core.sync.SyncController
+import dev.welles.notes.core.sync.LiveSync
 import dev.welles.notes.feature.stickies.widget.stickiesAndroidModule
 
 class NotesApplication : Application() {
@@ -41,10 +42,15 @@ class NotesApplication : Application() {
         if (startupError != null) return
 
         val sync = GlobalContext.get().get<SyncController>()
+        val live = GlobalContext.get().get<LiveSync>()
         SyncWorker.schedule(this)
-        // App start / back to foreground → sync.
+        // Foreground: sync now and keep the live connection; background: only WorkManager.
         ProcessLifecycleOwner.get().lifecycle.addObserver(object : DefaultLifecycleObserver {
-            override fun onStart(owner: LifecycleOwner) = sync.requestSync()
+            override fun onStart(owner: LifecycleOwner) {
+                sync.requestSync()
+                live.start()
+            }
+            override fun onStop(owner: LifecycleOwner) = live.stop()
         })
     }
 

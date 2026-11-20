@@ -16,8 +16,8 @@ import kotlin.time.Clock
 import kotlin.time.Instant
 import kotlinx.coroutines.Dispatchers
 
-class FixedClock(var now: Instant = Instant.parse("2026-11-20T10:00:00Z")) : Clock {
-    override fun now() = now
+class FixedClock(var now: Instant = Instant.parse("2026-11-20T10:00:00Z"), var live: Boolean = false) : Clock {
+    override fun now() = if (live) Clock.System.now() else now
 }
 
 /** Real Room database in memory with the production handlers; optional extra handlers/targets (e.g. a test-only type). */
