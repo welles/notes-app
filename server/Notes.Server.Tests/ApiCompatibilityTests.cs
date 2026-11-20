@@ -72,3 +72,27 @@ public sealed class ApiCompatibilityTests
         return dir?.FullName ?? throw new InvalidOperationException("Repo root not found.");
     }
 }
+
+public sealed class ExportTests
+{
+    [Fact]
+    public async Task Export_contains_all_live_entities_grouped_by_type()
+    {
+        await using var factory = new NotesWebFactory();
+        var http = factory.CreateClient();
+        var client = new SimClient(http, "c");
+        client.Create("stickies.sticky", new() { ["contextId"] = Notes.Core.Contexts.Context.DefaultId.ToString(), ["content"] = "bleibt" });
+        var gone = client.Create("stickies.sticky", new() { ["contextId"] = Notes.Core.Contexts.Context.DefaultId.ToString(), ["content"] = "weg" });
+        await client.SyncAsync();
+        client.Delete(gone);
+        await client.SyncAsync();
+
+        var response = await http.GetAsync("/api/export");
+        var doc = System.Text.Json.Nodes.JsonNode.Parse(await response.Content.ReadAsStringAsync())!;
+
+        Assert.StartsWith("attachment", response.Content.Headers.ContentDisposition?.DispositionType ?? "attachment");
+        var stickies = doc["entities"]!["stickies.sticky"]!.AsArray();
+        Assert.Equal(["bleibt"], stickies.Select(s => s!["content"]!.GetValue<string>()));
+        Assert.Single(doc["entities"]!["core.context"]!.AsArray());
+    }
+}

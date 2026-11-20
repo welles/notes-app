@@ -277,9 +277,24 @@ Notes hat keine eigenen Benutzerkonten. Cloudflare Access lässt nur mich (Brows
 
 Widerrufen oder Rotieren eines Geräts: Service-Token im Dashboard löschen bzw. erneuern.
 
+## Export
+
+Alle Daten aller Module als JSON: Download-Symbol in der Web-App bzw. `GET /api/export`.
+
+## Neues Modul
+
+Checkliste: [`docs/adding-a-module.md`](docs/adding-a-module.md).
+
 ## CI
 
 - `.github/workflows/server.yml`: Build + Tests bei jedem Push; prüft, dass `api/openapi.json` aktuell ist; `scripts/check-api-compat.sh` vergleicht die Spec mit dem letzten `server-v*`-Tag (`oasdiff breaking`) und stellt sicher, dass veröffentlichte Fixtures nicht verändert wurden. Bei Tags `server-v*` wird das Image nach GHCR gepusht.
+
+- `.github/workflows/clients.yml`: Client-Tests, Android-/Desktop-Build, Nix-Paket (`nix build .#notes-desktop`); bei Tags `clients-v*` signierte Release-APK.
+- `.github/workflows/compat.yml`: echte Client-Sync-Engine gegen echten Server über Versionsgrenzen (`scripts/compat-e2e.sh`): aktuell↔aktuell, letzter `clients-v*`-Client gegen aktuellen Server, aktueller Client gegen letzten `server-v*`-Server. Lokal:
+
+```bash
+nix develop .#android --command scripts/compat-e2e.sh current current
+```
 
 Release des Servers:
 

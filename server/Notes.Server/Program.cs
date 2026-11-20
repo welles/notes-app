@@ -59,6 +59,7 @@ app.MapStaticAssets();
 app.MapOpenApi("/api/openapi.json");
 app.MapMetaEndpoints();
 app.MapSyncEndpoints();
+app.MapExportEndpoints();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode()
     .AddAdditionalAssemblies(app.Services.GetRequiredService<ModuleSet>().Modules

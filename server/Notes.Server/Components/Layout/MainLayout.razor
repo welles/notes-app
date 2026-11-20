@@ -22,6 +22,7 @@
         <MudLink Href="/" Typo="Typo.h6" Color="Color.Inherit" Underline="Underline.None" Class="notes-logo">Notes</MudLink>
         <ContextSwitcher Contexts="_contexts" OnSwitch="SwitchAsync" />
         <QuickCapture />
+        <MudIconButton Icon="@Icons.Material.Outlined.Download" Href="/api/export" title="Export (JSON)" Size="Size.Small" />
     </MudAppBar>
     @if (ShowNavigation)
     {

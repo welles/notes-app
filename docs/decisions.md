@@ -118,3 +118,9 @@ Kurz und knapp, neueste unten.
 ## UI-Texte
 
 - **Keine Erklärsätze an UI-Elementen** (Wunsch des Nutzers): nur knappe Labels, Platzhalter, Titel und echte Status-/Fehlermeldungen. Wo etwas ohne Erklärung nicht verständlich ist, wird das Design verbessert statt ein Hinweis ergänzt.
+
+## Schritt 10 – Feinschliff
+
+- **Export** über `GET /api/export` (alle Typen über den generischen Pull, nur nicht gelöschte Entitäten, gruppiert nach Typ) – kein modulspezifischer Code; Download-Symbol in der App-Bar.
+- **Kompatibilität über Versionen**: `RealServerSyncTest` (echte Sync-Engine, echter Server, nur mit `-Pnotes.e2eServer`) + `scripts/compat-e2e.sh` für beliebige Ref-Paare (Git-Worktrees). Ältere Client-Tags ohne diesen Test werden übersprungen.
+- **Live-Sync in den Clients (SSE/WebSocket)** ist laut Spec „nach Rücksprache“ und daher nicht umgesetzt.

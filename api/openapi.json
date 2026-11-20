@@ -27,6 +27,20 @@
         }
       }
     },
+    "/api/export": {
+      "get": {
+        "tags": [
+          "Export"
+        ],
+        "summary": "All non-deleted entities of all modules as JSON, grouped by entity type.",
+        "operationId": "ExportAll",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
     "/api/sync/changes": {
       "get": {
         "tags": [
@@ -509,6 +523,9 @@
   "tags": [
     {
       "name": "Meta"
+    },
+    {
+      "name": "Export"
     },
     {
       "name": "Sync"

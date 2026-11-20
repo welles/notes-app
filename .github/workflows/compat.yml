@@ -1,0 +1,41 @@
+name: compatibility
+
+# Every published client version must work with every newer server and vice versa (spec 5.2).
+on:
+  push:
+    branches: [main]
+    paths: ["server/**", "clients/**", "api/**", "scripts/compat-e2e.sh", ".github/workflows/compat.yml"]
+  schedule:
+    - cron: "17 4 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        pair: [current-current, released-clients, released-server]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: server/global.json
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Run
+        run: |
+          latest() { git tag --list "$1" --sort=-v:refname | head -n1; }
+          case "${{ matrix.pair }}" in
+            current-current)  scripts/compat-e2e.sh current current ;;
+            released-clients) t=$(latest 'clients-v*'); [ -z "$t" ] && { echo "no clients-v* tag yet"; exit 0; }; scripts/compat-e2e.sh current "$t" ;;
+            released-server)  t=$(latest 'server-v*');  [ -z "$t" ] && { echo "no server-v* tag yet"; exit 0; }; scripts/compat-e2e.sh "$t" current ;;
+          esac

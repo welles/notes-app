@@ -36,7 +36,13 @@ class KmpLibraryConventionPlugin : Plugin<Project> {
             }
             // Tests read api/openapi.json and api/fixtures from the repository root.
             val repoRoot = rootDir.parentFile.absolutePath
-            tasks.withType(org.gradle.api.tasks.testing.Test::class.java).configureEach { systemProperty("notes.repoRoot", repoRoot) }
+            val e2eServer = providers.gradleProperty("notes.e2eServer").orNull ?: ""
+            tasks.withType(org.gradle.api.tasks.testing.Test::class.java).configureEach {
+                systemProperty("notes.repoRoot", repoRoot)
+                // End-to-end sync tests against a real server run only with -Pnotes.e2eServer=http://…
+                systemProperty("notes.e2eServer", e2eServer)
+                if (e2eServer.isNotEmpty()) outputs.upToDateWhen { false }
+            }
             sourceSets.getByName("commonTest").dependencies {
                 implementation(kotlin("test"))
                 implementation(libs.findLibrary("kotlinx-coroutines-test").get())
