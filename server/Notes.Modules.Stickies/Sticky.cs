@@ -42,3 +42,14 @@ internal sealed class StickyConfiguration : IEntityTypeConfiguration<Sticky>
         e.HasIndex(x => new { x.ContextId, x.DeletedAt });
     }
 }
+
+/// <summary><c>data</c> of <c>stickies.sticky</c> (API documentation).</summary>
+[System.ComponentModel.Description("data of entity type stickies.sticky")]
+public sealed record StickyData(
+    Guid Id, DateTime CreatedAt, DateTime ModifiedAt, DateTime? DeletedAt, long Version,
+    [property: System.ComponentModel.Description("Context the post-it belongs to.")] Guid ContextId,
+    string? Title,
+    [property: System.ComponentModel.Description("Plaintext, line breaks preserved.")] string Content,
+    [property: System.ComponentModel.Description("yellow, green, blue, pink, purple, orange, gray. Unknown values must be preserved and displayed as yellow.")] string Color,
+    bool Pinned,
+    [property: System.ComponentModel.Description("Ascending manual order.")] double Position) : SyncDataBase(Id, CreatedAt, ModifiedAt, DeletedAt, Version);

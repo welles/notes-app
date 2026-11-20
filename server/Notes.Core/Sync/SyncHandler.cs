@@ -19,6 +19,8 @@ public abstract class SyncHandler<T> : ISyncHandler where T : SyncEntity, new()
     public virtual int ApplyOrder => 100;
     public bool IsContextScoped { get; } = typeof(ContextScopedEntity).IsAssignableFrom(typeof(T));
 
+    public virtual Type? DataSchema => null;
+
     /// <summary>JSON names of the module-specific fields.</summary>
     protected abstract IReadOnlyCollection<string> Fields { get; }
 

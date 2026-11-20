@@ -14,12 +14,12 @@ namespace Notes.Core;
 public static class ServiceCollectionExtensions
 {
     /// <summary>Registers the core (sync, contexts, capture, events) and composes the given modules.</summary>
-    public static IServiceCollection AddNotesCore(this IServiceCollection services, Action<DbContextOptionsBuilder> configureDb, params IModule[] modules)
+    public static IServiceCollection AddNotesCore(this IServiceCollection services, Action<IServiceProvider, DbContextOptionsBuilder> configureDb, params IModule[] modules)
     {
         services.AddSingleton(new ModuleSet(modules));
-        services.AddDbContextFactory<NotesDbContext>(o =>
+        services.AddDbContextFactory<NotesDbContext>((sp, o) =>
         {
-            configureDb(o);
+            configureDb(sp, o);
             o.ReplaceService<IModelCacheKeyFactory, ModuleModelCacheKeyFactory>();
         });
         services.TryAddSingleton(TimeProvider.System);

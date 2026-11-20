@@ -8,6 +8,8 @@ public sealed class StickySyncHandler : SyncHandler<Sticky>
 {
     public const string ConflictPrefix = "Konflikt: ";
 
+    public override Type DataSchema => typeof(StickyData);
+
     protected override IReadOnlyCollection<string> Fields { get; } = ["title", "content", "color", "pinned", "position"];
 
     protected override void Write(Sticky e, JsonObject data)

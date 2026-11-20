@@ -43,6 +43,7 @@ internal sealed class ContextConfiguration : IEntityTypeConfiguration<Context>
 public sealed class ContextSyncHandler : SyncHandler<Context>
 {
     public override int ApplyOrder => 0;
+    public override Type DataSchema => typeof(ContextData);
 
     protected override IReadOnlyCollection<string> Fields { get; } = ["name", "color", "position"];
 
@@ -69,3 +70,11 @@ public sealed class ContextSyncHandler : SyncHandler<Context>
         };
     }
 }
+
+/// <summary><c>data</c> of <c>core.context</c> (API documentation).</summary>
+[System.ComponentModel.Description("data of entity type core.context")]
+public sealed record ContextData(
+    Guid Id, DateTime CreatedAt, DateTime ModifiedAt, DateTime? DeletedAt, long Version,
+    string Name,
+    [property: System.ComponentModel.Description("Optional accent colour. Unknown values must be preserved.")] string? Color,
+    double Position) : SyncDataBase(Id, CreatedAt, ModifiedAt, DeletedAt, Version);

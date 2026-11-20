@@ -13,15 +13,15 @@ public sealed record PushEnvelope(string EntityType, Guid Id, long? BaseVersion,
 public enum PushStatus
 {
     /// <summary>Change applied as sent.</summary>
-    Accepted,
+    [JsonStringEnumMemberName("accepted")] Accepted,
     /// <summary>Base version did not match; resolved by the server (see <see cref="PushEntryResult.Winner"/>).</summary>
-    Conflict,
+    [JsonStringEnumMemberName("conflict")] Conflict,
     /// <summary>Not applied (see <see cref="PushEntryResult.Reason"/>). The client must keep the change.</summary>
-    Rejected,
+    [JsonStringEnumMemberName("rejected")] Rejected,
 }
 
 [JsonConverter(typeof(JsonStringEnumConverter<ConflictWinner>))]
-public enum ConflictWinner { Client, Server }
+public enum ConflictWinner { [JsonStringEnumMemberName("client")] Client, [JsonStringEnumMemberName("server")] Server }
 
 public static class RejectReasons
 {

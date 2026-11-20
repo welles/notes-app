@@ -18,6 +18,9 @@ public interface ISyncHandler
 
     bool IsContextScoped { get; }
 
+    /// <summary>Documentation type describing <c>data</c> of this entity type in the OpenAPI spec (API contract only).</summary>
+    Type? DataSchema { get; }
+
     Task<SyncEntity?> FindAsync(NotesDbContext db, Guid id, CancellationToken ct);
     Task<IReadOnlyList<SyncEntity>> LoadAsync(NotesDbContext db, IReadOnlyCollection<Guid> ids, CancellationToken ct);
 
