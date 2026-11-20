@@ -19,6 +19,7 @@ import dev.welles.notes.core.sync.ClientInfo
 import dev.welles.notes.core.sync.CredentialStore
 import dev.welles.notes.core.sync.QrScanner
 import dev.welles.notes.core.sync.SyncController
+import dev.welles.notes.feature.stickies.widget.stickiesAndroidModule
 
 class NotesApplication : Application() {
     /** Error while opening the database (e.g. written by a newer app version) – shown instead of crashing. */
@@ -54,5 +55,6 @@ class NotesApplication : Application() {
             single { ClientInfo("android", BuildConfig.VERSION_NAME) }
             single<QrScanner> { GmsQrScanner(get()) }
         },
+        stickiesAndroidModule,
     )
 }

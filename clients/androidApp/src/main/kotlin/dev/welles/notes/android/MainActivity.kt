@@ -6,6 +6,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import dev.welles.notes.app.NotesApp
+import dev.welles.notes.core.ui.AppIntents
 
 class MainActivity : ComponentActivity() {
     private val app get() = application as NotesApplication
@@ -30,7 +31,7 @@ class MainActivity : ComponentActivity() {
     }
 
     companion object {
-        const val EXTRA_CAPTURE = "dev.welles.notes.CAPTURE"
-        const val EXTRA_OPEN_STICKY = "dev.welles.notes.OPEN_STICKY"
+        const val EXTRA_CAPTURE = AppIntents.EXTRA_CAPTURE
+        const val EXTRA_OPEN_STICKY = AppIntents.EXTRA_OPEN_STICKY
     }
 }

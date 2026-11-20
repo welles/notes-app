@@ -39,3 +39,9 @@ interface SettingsSection {
 
 /** Snackbar host of the shell (e.g. "Post-it gelöscht – Rückgängig"). */
 val LocalSnackbar = staticCompositionLocalOf<SnackbarHostState> { error("No snackbar host") }
+
+/** Intent extras understood by the app's main entry (used by Android widgets and shortcuts). */
+object AppIntents {
+    const val EXTRA_CAPTURE = "dev.welles.notes.CAPTURE"
+    const val EXTRA_OPEN_STICKY = "dev.welles.notes.OPEN_STICKY"
+}

@@ -63,6 +63,10 @@ interface StickyDao {
     @Query("DELETE FROM stickies_sticky WHERE id NOT IN (:keep)")
     suspend fun deleteAllExcept(keep: List<String>)
 
+    /** Emits on every change of the table (used to refresh widgets). */
+    @Query("SELECT COUNT(*) || ':' || COALESCE(MAX(modifiedAt), '') || ':' || COALESCE(SUM(version), 0) FROM stickies_sticky")
+    fun observeChangeMarker(): Flow<String>
+
     @Query("SELECT MIN(position) FROM stickies_sticky WHERE contextId = :contextId AND deletedAt IS NULL")
     suspend fun minPosition(contextId: String): Double?
 }
