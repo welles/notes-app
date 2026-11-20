@@ -40,7 +40,7 @@ public sealed class TestApp : IAsyncDisposable
         await connection.OpenAsync();
         var services = new ServiceCollection()
             .AddSingleton<TimeProvider>(new ManualTimeProvider())
-            .AddNotesCore(o => o.UseSqlite(connection, s => s.MigrationsAssembly(typeof(NotesComposition).Assembly.GetName().Name)), NotesComposition.Modules())
+            .AddNotesCore((_, o) => o.UseSqlite(connection, s => s.MigrationsAssembly(typeof(NotesComposition).Assembly.GetName().Name)), NotesComposition.Modules())
             .BuildServiceProvider();
         var app = new TestApp(connection, services);
         await using var db = await app.Db.CreateDbContextAsync();
@@ -56,7 +56,7 @@ public sealed class TestApp : IAsyncDisposable
         IModule[] modules = [new StickiesModule(), new DummyModule()];
         var services = new ServiceCollection()
             .AddSingleton<TimeProvider>(new ManualTimeProvider())
-            .AddNotesCore(o => o.UseSqlite(connection), modules)
+            .AddNotesCore((_, o) => o.UseSqlite(connection), modules)
             .BuildServiceProvider();
         var app = new TestApp(connection, services);
         await using var db = await app.Db.CreateDbContextAsync();

@@ -1,0 +1,20 @@
+{
+  "description": "Entity of a module this version does not know",
+  "expect": "rejected_unknown_type",
+  "envelope": {
+    "entityType": "todos.todo",
+    "id": "019a8f00-0000-7000-8000-00000000f003",
+    "version": 16,
+    "deleted": false,
+    "data": {
+      "id": "019a8f00-0000-7000-8000-00000000f003",
+      "createdAt": "2026-11-20T10:00:00.000Z",
+      "modifiedAt": "2026-11-20T10:00:00.000Z",
+      "deletedAt": null,
+      "version": 16,
+      "contextId": "019a0000-0000-7000-8000-000000000001",
+      "text": "Steuer machen",
+      "dueAt": "2026-12-31T00:00:00.000Z"
+    }
+  }
+}

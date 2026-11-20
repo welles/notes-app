@@ -22,3 +22,16 @@ Kurz und knapp, neueste unten.
 - **DbContext per `IDbContextFactory`** (kurzlebig pro Operation), Services sind Singletons – passt zu Blazor-Server-Circuits.
 - **Tests: xUnit v3 auf Microsoft.Testing.Platform** (`server/global.json`), da VSTest mit .NET 10 SDK + xUnit v3 nicht mehr unterstützt wird.
 - **Repo-Struktur**: `clients/` und `api/` werden erst in den jeweiligen Schritten angelegt (keine leeren Platzhalter).
+
+## Schritt 2 – Sync-API & Cloudflare Access
+
+- **„full resync required“ ist ein Flag in der Pull-Antwort** (`fullResyncRequired: true`, HTTP 200), kein eigener Statuscode – einfacher für die Clients.
+- **Push-Body ist `{ "changes": [...] }`** statt eines nackten Arrays, damit später weitere Felder additiv dazukommen können.
+- **JSON-Konventionen:** camelCase, Enums kleingeschrieben (`accepted`, `conflict`, `rejected`, `client`, `server`), Zahlen strikt (keine Zahlen als Strings) – damit ist auch das OpenAPI-Schema sauber.
+- **`data` bleibt im Schema ein freies Objekt**; die Form je Typ ist als eigene Komponente beschrieben (`ContextData`, `StickyData`). Die Liste steht in `OpenApiSetup.DataSchemas` und muss bei einem neuen Modul ergänzt werden.
+- **`Notes-Protocol` fehlt → erlaubt** (Browser, curl). Nur ein gesetzter, nicht unterstützter Wert führt zu 426.
+- **`capabilities`**: `sync.v1`, `contexts`, je Modul dessen Key, `convert` erst bei mehr als einem Capture-Ziel.
+- **`minClientVersion`** kommt aus der Konfiguration `Notes__MinClientVersion__android` / `__desktop`.
+- **JWKS von Cloudflare** wird 1 h gecacht; bei unbekannter `kid` (Schlüsselrotation) wird höchstens einmal pro Minute neu geladen.
+- **Build-Zeit-OpenAPI** (`Microsoft.Extensions.ApiDescription.Server`) führt `Program.cs` aus; Konfigurationsprüfung und Migration werden dabei übersprungen. Ein Test prüft, dass `api/openapi.json` zum laufenden Server passt.
+- **Fixtures** liegen unter `api/fixtures/<entityType>/` bzw. `_future/`; Format siehe `api/fixtures/README.md`.

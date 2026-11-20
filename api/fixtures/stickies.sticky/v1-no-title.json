@@ -1,0 +1,23 @@
+{
+  "description": "Post-it without title, default colour",
+  "expect": "roundtrip",
+  "envelope": {
+    "entityType": "stickies.sticky",
+    "id": "019a8f00-0000-7000-8000-00000000a002",
+    "version": 12,
+    "deleted": false,
+    "data": {
+      "id": "019a8f00-0000-7000-8000-00000000a002",
+      "createdAt": "2026-11-20T10:00:00.000Z",
+      "modifiedAt": "2026-11-20T10:00:00.000Z",
+      "deletedAt": null,
+      "version": 12,
+      "contextId": "019a0000-0000-7000-8000-000000000001",
+      "title": null,
+      "content": "",
+      "color": "yellow",
+      "pinned": false,
+      "position": 0.5
+    }
+  }
+}

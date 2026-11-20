@@ -1,0 +1,21 @@
+{
+  "description": "Context from a future version: unknown colour and icon field",
+  "expect": "roundtrip",
+  "envelope": {
+    "entityType": "core.context",
+    "id": "019a8f00-0000-7000-8000-00000000f002",
+    "version": 15,
+    "deleted": false,
+    "data": {
+      "id": "019a8f00-0000-7000-8000-00000000f002",
+      "createdAt": "2026-11-20T10:00:00.000Z",
+      "modifiedAt": "2026-11-20T10:00:00.000Z",
+      "deletedAt": null,
+      "version": 15,
+      "name": "Reise",
+      "color": "ultraviolet",
+      "position": 2.5,
+      "icon": "plane"
+    }
+  }
+}

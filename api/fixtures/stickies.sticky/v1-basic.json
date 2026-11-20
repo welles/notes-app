@@ -1,0 +1,23 @@
+{
+  "description": "Post-it as of protocol v1",
+  "expect": "roundtrip",
+  "envelope": {
+    "entityType": "stickies.sticky",
+    "id": "019a8f00-0000-7000-8000-00000000a001",
+    "version": 11,
+    "deleted": false,
+    "data": {
+      "id": "019a8f00-0000-7000-8000-00000000a001",
+      "createdAt": "2026-11-20T10:00:00.000Z",
+      "modifiedAt": "2026-11-20T10:05:00.500Z",
+      "deletedAt": null,
+      "version": 11,
+      "contextId": "019a0000-0000-7000-8000-000000000001",
+      "title": "Einkauf",
+      "content": "Milch\nBrot\n  eingerückt",
+      "color": "green",
+      "pinned": true,
+      "position": -2.25
+    }
+  }
+}

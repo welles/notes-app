@@ -1,0 +1,26 @@
+{
+  "description": "Post-it from a future version: unknown colour, new scalar, object and array fields",
+  "expect": "roundtrip",
+  "envelope": {
+    "entityType": "stickies.sticky",
+    "id": "019a8f00-0000-7000-8000-00000000f001",
+    "version": 14,
+    "deleted": false,
+    "data": {
+      "id": "019a8f00-0000-7000-8000-00000000f001",
+      "createdAt": "2026-11-20T10:00:00.000Z",
+      "modifiedAt": "2026-11-20T10:00:00.000Z",
+      "deletedAt": null,
+      "version": 14,
+      "contextId": "019a0000-0000-7000-8000-000000000001",
+      "title": "Zukunft",
+      "content": "aus v9",
+      "color": "teal",
+      "pinned": false,
+      "position": 7.5,
+      "expiresAt": "2027-01-01T00:00:00.000Z",
+      "checklist": [{ "text": "a", "done": true }, { "text": "b", "done": false }],
+      "style": { "font": "mono", "size": 1.25 }
+    }
+  }
+}
