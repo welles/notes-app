@@ -17,7 +17,7 @@
         <div class="d-flex align-center gap-2 pa-2 flex-wrap">
             <MudMenu Dense="true">
                 <ActivatorContent>
-                    <button type="button" class="notes-swatch" style="background:@NoteColors.Accent(c.Color)" title="Farbe"></button>
+                    <button type="button" class="notes-swatch" style="background:@NoteColors.Accent(c.Color)" title="Farbe" @onclick="@(e => context.ToggleAsync(e))"></button>
                 </ActivatorContent>
                 <ChildContent>
                     <div class="d-flex flex-wrap gap-1 pa-2" style="max-width:150px">

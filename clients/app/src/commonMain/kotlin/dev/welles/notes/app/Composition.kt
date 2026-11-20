@@ -61,7 +61,7 @@ val coreModule = module {
 
 /** All modules of the app. A new feature module adds its Koin module here (docs/adding-a-module.md). */
 fun notesModules(platform: Module, database: Module, extra: List<Module> = emptyList()): List<Module> =
-    listOf(platform, database, coreModule, stickiesModule) + extra
+    listOf(platform, database, coreModule, syncModule, stickiesModule) + extra
 
 /** Thrown when the local database was written by a newer app version (downgrade is not supported). */
 class NewerDatabaseException(val found: Int) : Exception("Database version $found is newer than ${NotesDatabase.VERSION}")

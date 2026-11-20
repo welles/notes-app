@@ -33,6 +33,9 @@ class KmpLibraryConventionPlugin : Plugin<Project> {
             compilerOptions {
                 freeCompilerArgs.addAll("-Xexpect-actual-classes", "-opt-in=kotlin.uuid.ExperimentalUuidApi", "-opt-in=kotlin.time.ExperimentalTime")
             }
+            // Tests read api/openapi.json and api/fixtures from the repository root.
+            val repoRoot = rootDir.parentFile.absolutePath
+            tasks.withType(org.gradle.api.tasks.testing.Test::class.java).configureEach { systemProperty("notes.repoRoot", repoRoot) }
             sourceSets.getByName("commonTest").dependencies {
                 implementation(kotlin("test"))
                 implementation(libs.findLibrary("kotlinx-coroutines-test").get())

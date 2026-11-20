@@ -1,0 +1,35 @@
+name: clients
+
+on:
+  push:
+    branches: [main]
+    tags: ["clients-v*"]
+    paths: ["clients/**", "api/**", ".github/workflows/clients.yml"]
+  pull_request:
+    paths: ["clients/**", "api/**", ".github/workflows/clients.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: clients
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Android SDK components
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-37.0" "build-tools;36.0.0" "build-tools;37.0.0" > /dev/null
+      - name: Tests (shared code on JVM, Room in-memory, contract + fixtures)
+        run: ./gradlew :core:model:desktopTest :app:desktopTest --continue
+      - name: Build Android debug + desktop
+        run: ./gradlew :androidApp:assembleDebug :desktopApp:createDistributable
+      - name: Room schemas are committed
+        run: git diff --exit-code -- app/schemas || (echo "::error::Room schema changed – commit clients/app/schemas." && exit 1)

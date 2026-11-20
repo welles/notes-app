@@ -10,6 +10,7 @@ kotlin {
             api(projects.core.data)
             api(projects.core.ui)
             api(projects.feature.stickies)
+            api(projects.core.sync)
             implementation(libs.sqlite.bundled)
         }
     }

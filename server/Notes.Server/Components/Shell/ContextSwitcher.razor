@@ -4,7 +4,7 @@
 
 <MudMenu AnchorOrigin="Origin.BottomLeft" TransformOrigin="Origin.TopLeft" Dense="true">
     <ActivatorContent>
-        <MudButton Variant="Variant.Text" Size="Size.Small" EndIcon="@Icons.Material.Filled.ArrowDropDown" Class="notes-context-button" title="Kontext wechseln">
+        <MudButton Variant="Variant.Text" Size="Size.Small" EndIcon="@Icons.Material.Filled.ArrowDropDown" Class="notes-context-button" title="Kontext wechseln" OnClick="@(e => context.ToggleAsync(e))">
             <span class="notes-dot" style="background:@NoteColors.Accent(Active.Current?.Color)"></span>
             <span class="notes-context-name">@Active.Current?.Name</span>
         </MudButton>

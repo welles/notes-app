@@ -70,3 +70,18 @@ Kurz und knapp, neueste unten.
 - **Sortieren auf den Clients** per Long-Press-Drag innerhalb der Abschnitte „Angepinnt“/„Weitere“ (`sh.calvin.reorderable`); Anpinnen über den Pin-Button.
 - **Desktop-Dark-Mode**: Compose erkennt ihn unter Linux nicht selbst; Notes liest `GTK_THEME`, `gsettings` (GNOME/Cinnamon) bzw. `kdeglobals` (KDE). `NOTES_DARK=1` erzwingt ihn.
 - **Backup (Android)**: Datenbank darf ins Backup, Zugangsdaten nicht (Ausschluss in `backup_rules.xml`/`data_extraction_rules.xml`).
+
+## Schritt 6 – Client-Sync
+
+- **Hand-geschriebene DTOs** in `core/model` (statt Generator, OpenAPI 3.1). `ApiContractTest` prüft Feldnamen und Enum-Werte gegen `api/openapi.json`.
+- **Engine-Tests laufen im `desktopTest` von `:app`** (JVM), nicht in `commonTest`: Sie brauchen die echte Room-Datenbank in-memory, und die gibt es ohne Android-Context nur auf JVM/Native. Die getestete Logik ist trotzdem der gemeinsame Code. Fixtures werden direkt aus `api/fixtures` gelesen.
+- **Push-Reihenfolge**: Batches mit Kontexten zuerst, dann nach Entstehungsreihenfolge; Batches werden nie über mehrere Pushes verteilt (max. 200 Einträge pro Push).
+- **Typen, die der Server laut `meta` nicht kennt**, werden gar nicht erst gesendet, sondern direkt als „wartet auf Server-Update“ markiert.
+- **Während eines Pushs lokal geändert** → Outbox-Eintrag bleibt und wird auf die neue Server-Version „rebased“, damit der nächste Push nicht mit sich selbst kollidiert.
+- **Full Resync nach Client-Update**: Die Engine merkt sich die beim letzten Sync bekannten Typen; kennt das neue Update mehr, wird der Cursor auf 0 gesetzt.
+- **Weiterleitungen werden nicht verfolgt**: Cloudflares Login-Redirect, 401/403 oder eine HTML-Antwort werden als „Zugangsdaten prüfen“ angezeigt, nicht als Parse-Fehler.
+- **Offline** wird dezent (graues Wolken-Icon) angezeigt, echte Fehler rot.
+- **QR-Code**: Google Code Scanner (Play-Dienste) statt CameraX + ML Kit – keine Kamera-Berechtigung, wenig Code. Fallback: JSON einfügen.
+- **Desktop-Zugangsdaten über `secret-tool`** (libsecret-CLI) statt JNA-Bindings an libsecret: deutlich weniger Code; das Nix-Paket bringt `secret-tool` mit. Fallback-Datei 0600.
+- **Debug-Builds** erlauben Klartext-HTTP nur zu `10.0.2.2`/`localhost` (eigenes Manifest-Overlay unter `src/debug`).
+- **Erprobt**: Emulator offline bearbeitet + Web gleichzeitig geändert → nach Reconnect gewinnt die neuere Änderung, die andere bleibt als „Konflikt: …“ erhalten; Desktop ↔ Handy synchronisieren in beide Richtungen.

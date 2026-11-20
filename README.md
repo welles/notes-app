@@ -91,6 +91,25 @@ Tests (gemeinsamer Code läuft auf JVM; Room in-memory):
 
 Room-Schemas liegen committed unter `clients/app/schemas/` (Grundlage für Migrationstests).
 
+### Verbindung einrichten (Android/Desktop)
+
+In der App: Einstellungen → Synchronisation. Server-URL (vorbelegt `https://notes.welles.app`), CF-Access-Client-ID und -Secret eines Service-Tokens (am besten einer pro Gerät, siehe „Cloudflare Zero Trust einrichten“). Leer gelassene Token-Felder = keine Cloudflare-Header (lokale Entwicklung).
+
+Bequemer per QR-Code (Android) bzw. JSON einfügen (Desktop). Am PC erzeugen:
+
+```bash
+read -rsp "Client-Secret: " SECRET; echo
+qrencode -t ansiutf8 "{\"url\": \"https://notes.welles.app\", \"clientId\": \"<id>.access\", \"clientSecret\": \"$SECRET\"}"
+```
+
+Am Handy: „QR-Code scannen“ (Google Code Scanner, braucht Google-Play-Dienste). Am Desktop dasselbe JSON in „JSON einfügen“ kopieren.
+
+Die Zugangsdaten liegen verschlüsselt: Android über Tink mit Schlüssel im Android Keystore (nicht im Backup), Desktop im Secret Service (gnome-keyring, KWallet, KeePassXC …) über `secret-tool`; ohne Secret Service als Datei `$XDG_CONFIG_HOME/notes/credentials.json` mit Rechten 0600 (Warnung im Log).
+
+Sync läuft: Android beim Start/Vordergrund, ca. 2 s nach lokalen Änderungen, per Pull-to-Refresh und alle 15 min im Hintergrund (WorkManager, nur mit Netz); Desktop beim Start, bei Fensterfokus, nach lokalen Änderungen und alle 5 min. Fehler werden mit Backoff wiederholt.
+
+Lokal gegen einen Dev-Server testen: Debug-Builds erlauben Klartext-HTTP zu `10.0.2.2` (Emulator) und `localhost` (`adb reverse tcp:5080 tcp:5080`).
+
 ## Konfiguration (Server)
 
 | Variable | Default | Bedeutung |

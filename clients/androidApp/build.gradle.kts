@@ -45,4 +45,10 @@ dependencies {
     implementation(libs.androidx.activity.compose)
     implementation(libs.koin.android)
     implementation(libs.kotlinx.coroutines.android)
+    implementation(libs.androidx.work)
+    implementation(libs.koin.androidx.workmanager)
+    implementation(libs.androidx.datastore)
+    implementation(libs.tink.android)
+    implementation(libs.code.scanner)
+    implementation(libs.lifecycle.process)
 }

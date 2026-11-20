@@ -65,13 +65,22 @@ import dev.welles.notes.feature.stickies.data.STICKY_TYPE
 import dev.welles.notes.feature.stickies.data.Sticky
 import kotlinx.coroutines.launch
 import org.koin.compose.viewmodel.koinViewModel
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import dev.welles.notes.core.sync.SyncController
+import dev.welles.notes.core.sync.SyncStatus
+import org.koin.compose.koinInject
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyGridState
 
-@OptIn(ExperimentalFoundationApi::class)
+@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun StickiesScreen(navigator: Navigator) {
     val vm: StickiesViewModel = koinViewModel()
+    val sync: SyncController = koinInject()
+    val syncState by sync.state.collectAsStateCompat()
     val stickies by vm.stickies.collectAsStateCompat()
     val contexts by vm.contextList.collectAsStateCompat()
     val active = LocalActiveContext.current
@@ -106,19 +115,18 @@ fun StickiesScreen(navigator: Navigator) {
     }
 
     if (stickies == null) return
+    val pinned = items.filter { it.pinned }
+    val others = items.filter { !it.pinned }
+
+    // Pull-to-refresh triggers a sync (Android; harmless on desktop).
+    PullToRefreshBox(isRefreshing = syncState.status == SyncStatus.Syncing, onRefresh = sync::requestSync, modifier = Modifier.fillMaxSize()) {
     if (items.isEmpty()) {
-        Column(Modifier.fillMaxSize().padding(32.dp), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
+        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(32.dp), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
             Icon(Icons.Outlined.StickyNote2, null, Modifier.size(48.dp).alpha(.6f))
             Text("Noch keine Post-its in „${active.name}“.", Modifier.padding(top = 12.dp))
             Text("Tippe auf + um etwas zu notieren.", style = MaterialTheme.typography.bodySmall)
         }
-        return
-    }
-
-    val pinned = items.filter { it.pinned }
-    val others = items.filter { !it.pinned }
-
-    LazyVerticalGrid(
+    } else LazyVerticalGrid(
         columns = GridCells.Adaptive(160.dp),
         state = gridState,
         contentPadding = PaddingValues(12.dp, 12.dp, 12.dp, 96.dp),
@@ -156,6 +164,7 @@ fun StickiesScreen(navigator: Navigator) {
                 }
             }
         }
+    }
     }
 
     moving?.let { s ->
