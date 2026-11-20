@@ -8,7 +8,7 @@
 @inject IJSRuntime JS
 
 <div class="notes-capture">
-    <MudTextField T="string" Placeholder="@($"Schnell notieren … (N) → {Targets.Default.DisplayName} in „{Active.Current?.Name}“")"
+    <MudTextField T="string" Placeholder="Schnell notieren …"
                   Variant="Variant.Outlined" Margin="Margin.Dense" InputId="notes-capture-input"
                   Adornment="Adornment.End" AdornmentIcon="@Icons.Material.Filled.Add" OnAdornmentClick="SubmitFromButtonAsync" />
 </div>

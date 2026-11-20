@@ -95,11 +95,11 @@ fun NotesApp(
 private fun StartupErrorScreen(error: Throwable) {
     Surface(Modifier.fillMaxSize()) {
         Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("Notes kann nicht starten", style = MaterialTheme.typography.headlineSmall)
             if (error is NewerDatabaseException) {
-                Text("Die lokalen Daten stammen von einer neueren Notes-Version (Datenbank v${error.found}, diese App kennt v${NotesDatabase.VERSION}).")
-                Text("Bitte aktualisiere die App. Ein Downgrade wird nicht unterstützt; die Daten bleiben unverändert erhalten.")
+                Text("Update nötig", style = MaterialTheme.typography.headlineSmall)
+                Text("Datenbank v${error.found} > v${NotesDatabase.VERSION}")
             } else {
+                Text("Notes kann nicht starten", style = MaterialTheme.typography.headlineSmall)
                 Text(error.message ?: error.toString())
             }
         }

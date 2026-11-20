@@ -31,14 +31,14 @@
                 </ChildContent>
             </MudMenu>
             <MudTextField T="string" Value="c.Name" ValueChanged="name => RenameAsync(c, name)" Variant="Variant.Text" Margin="Margin.Dense" Style="min-width:160px" />
-            <MudText Typo="Typo.caption" Class="mud-text-secondary">@_counts.GetValueOrDefault(c.Id) Einträge@(c.Id == Context.DefaultId ? " · Standard" : "")@(c.Id == Active.Id ? " · aktiv hier" : "")</MudText>
+            <MudText Typo="Typo.caption" Class="mud-text-secondary">@_counts.GetValueOrDefault(c.Id)</MudText>
             <MudSpacer />
             <MudIconButton Icon="@Icons.Material.Filled.ArrowUpward" Size="Size.Small" Disabled="index == 0" OnClick="() => MoveAsync(index, -1)" title="Nach oben" />
             <MudIconButton Icon="@Icons.Material.Filled.ArrowDownward" Size="Size.Small" Disabled="index == _contexts.Count - 1" OnClick="() => MoveAsync(index, 1)" title="Nach unten" />
             <MudButton Size="Size.Small" Disabled="_counts.GetValueOrDefault(c.Id) == 0" OnClick="() => MoveAllAsync(c)">Alles verschieben …</MudButton>
             <MudIconButton Icon="@Icons.Material.Outlined.Delete" Size="Size.Small"
                            Disabled="c.Id == Context.DefaultId || _counts.GetValueOrDefault(c.Id) > 0"
-                           title="@(c.Id == Context.DefaultId ? "Der Standardkontext kann nicht gelöscht werden" : _counts.GetValueOrDefault(c.Id) > 0 ? "Nur leere Kontexte können gelöscht werden" : "Löschen")"
+                           title="Löschen"
                            OnClick="() => DeleteAsync(c)" />
         </div>
         <MudDivider />

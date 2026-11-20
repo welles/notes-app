@@ -202,8 +202,7 @@ fun ContextPickerScreen(contexts: List<NotesContext>, onPick: (String) -> Unit, 
     var name by remember { mutableStateOf("") }
     Surface(Modifier.fillMaxSize()) {
         Column(Modifier.windowInsetsPadding(WindowInsets.safeDrawing).padding(24.dp).widthIn(max = 480.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("In welchem Kontext arbeitest du auf diesem Gerät?", style = MaterialTheme.typography.headlineSmall)
-            Text("Alles, was du hier siehst und erfasst, gehört zu diesem Kontext. Wechseln kannst du später jederzeit oben in der Titelleiste.")
+            Text("Kontext", style = MaterialTheme.typography.headlineSmall)
             for (c in contexts) {
                 Row(Modifier.fillMaxWidth().clickable { onPick(c.id) }.padding(vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
                     ColorDot(NoteColors.accent(c.color), size = 14)
@@ -212,8 +211,8 @@ fun ContextPickerScreen(contexts: List<NotesContext>, onPick: (String) -> Unit, 
                 }
             }
             HorizontalDivider()
-            OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Neuer Kontext, z. B. Arbeit") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-            Button(onClick = { onCreate(name) }, enabled = name.isNotBlank()) { Text("Anlegen und verwenden") }
+            OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Neuer Kontext") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+            Button(onClick = { onCreate(name) }, enabled = name.isNotBlank()) { Text("Anlegen") }
         }
     }
 }

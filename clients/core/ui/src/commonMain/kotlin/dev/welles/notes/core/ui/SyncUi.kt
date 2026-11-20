@@ -93,16 +93,15 @@ class SyncSettingsSection(private val controller: SyncController) : SettingsSect
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("Synchronisation", style = MaterialTheme.typography.titleMedium)
             Text(statusText(state.status, state.lastSync), style = MaterialTheme.typography.bodyMedium)
-            if (state.pending > 0) Text("${state.pending} lokale Änderung(en) noch nicht übertragen", style = MaterialTheme.typography.bodySmall)
-            if (state.waitingForServer > 0) Text("${state.waitingForServer} Änderung(en) warten auf ein Server-Update", style = MaterialTheme.typography.bodySmall)
-            if (state.updateRecommended) Text("Update empfohlen: Der Server erwartet eine neuere App-Version.", color = MaterialTheme.colorScheme.tertiary)
+            if (state.pending > 0) Text("${state.pending} nicht übertragen", style = MaterialTheme.typography.bodySmall)
+            if (state.waitingForServer > 0) Text("${state.waitingForServer} warten auf Server-Update", style = MaterialTheme.typography.bodySmall)
+            if (state.updateRecommended) Text("Update empfohlen", color = MaterialTheme.colorScheme.tertiary)
 
             OutlinedTextField(url, { url = it }, label = { Text("Server-URL") }, singleLine = true, modifier = Modifier.fillMaxWidth(),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri))
             OutlinedTextField(clientId, { clientId = it }, label = { Text("CF-Access-Client-ID") }, singleLine = true, modifier = Modifier.fillMaxWidth())
             OutlinedTextField(secret, { secret = it }, label = { Text("CF-Access-Client-Secret") }, singleLine = true, modifier = Modifier.fillMaxWidth(),
                 visualTransformation = PasswordVisualTransformation())
-            Text("Leer lassen für lokale Entwicklung ohne Cloudflare.", style = MaterialTheme.typography.bodySmall)
 
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Button(onClick = { apply(ServerConfig(url, clientId, secret)) }) { Text("Speichern & verbinden") }
@@ -130,7 +129,7 @@ class SyncSettingsSection(private val controller: SyncController) : SettingsSect
                 onDismissRequest = { pasting = false },
                 title = { Text("Konfiguration einfügen") },
                 text = {
-                    OutlinedTextField(json, { json = it }, placeholder = { Text("{\"url\": …, \"clientId\": …, \"clientSecret\": …}") }, minLines = 4, modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(json, { json = it }, minLines = 4, modifier = Modifier.fillMaxWidth())
                 },
                 confirmButton = {
                     TextButton(onClick = {
@@ -144,13 +143,13 @@ class SyncSettingsSection(private val controller: SyncController) : SettingsSect
     }
 
     private fun statusText(status: SyncStatus, last: String?): String = when (status) {
-        SyncStatus.NotConfigured -> "Noch nicht eingerichtet – Daten bleiben nur auf diesem Gerät."
+        SyncStatus.NotConfigured -> "Nicht eingerichtet"
         SyncStatus.Syncing -> "Synchronisiere …"
-        SyncStatus.UpdateRequired -> "Update nötig, Sync pausiert. Lokale Daten bleiben erhalten."
+        SyncStatus.UpdateRequired -> "Update nötig – Sync pausiert"
         is SyncStatus.Failed -> when {
-            status.offline -> "Offline – Änderungen bleiben gespeichert und werden später übertragen."
+            status.offline -> "Offline"
             status.credentials -> "Zugangsdaten prüfen: ${status.message}"
-            else -> "Fehler: ${status.message} (wird erneut versucht)"
+            else -> "Fehler: ${status.message}"
         }
         else -> last?.let { "Zuletzt synchronisiert: ${formatTime(it)}" } ?: "Noch nicht synchronisiert"
     }

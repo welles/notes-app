@@ -57,12 +57,7 @@ fun ContextsScreen() {
                 ColorDot(NoteColors.accent(row.context.color), size = 14)
                 Column(Modifier.weight(1f).padding(start = 12.dp)) {
                     Text(row.context.name, style = MaterialTheme.typography.titleMedium)
-                    val hints = buildList {
-                        add("${row.count} Einträge")
-                        if (row.context.isDefault) add("Standard")
-                        if (row.context.id == active.id) add("aktiv auf diesem Gerät")
-                    }
-                    Text(hints.joinToString(" · "), style = MaterialTheme.typography.bodySmall)
+                    Text("${row.count}", style = MaterialTheme.typography.bodySmall)
                 }
                 IconButton(onClick = { vm.move(index, -1) }, enabled = index > 0) { Icon(Icons.Filled.ArrowUpward, "Nach oben") }
                 IconButton(onClick = { vm.move(index, 1) }, enabled = index < rows.lastIndex) { Icon(Icons.Filled.ArrowDownward, "Nach unten") }
@@ -71,7 +66,7 @@ fun ContextsScreen() {
                     DropdownMenuItem(text = { Text("Umbenennen / Farbe …") }, onClick = { menu = false; editing = row })
                     DropdownMenuItem(text = { Text("Alles verschieben nach …") }, enabled = row.count > 0, onClick = { menu = false; movingFrom = row })
                     DropdownMenuItem(
-                        text = { Text(if (row.context.isDefault) "Löschen (Standard nicht möglich)" else if (row.count > 0) "Löschen (nur wenn leer)" else "Löschen") },
+                        text = { Text("Löschen") },
                         leadingIcon = { Icon(Icons.Filled.Delete, null) },
                         enabled = !row.context.isDefault && row.count == 0,
                         onClick = {

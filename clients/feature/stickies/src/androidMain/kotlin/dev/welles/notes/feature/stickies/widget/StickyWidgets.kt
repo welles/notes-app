@@ -117,21 +117,20 @@ class SingleStickyWidget : GlanceAppWidget(), KoinComponent {
                     Text(s.content, style = TextStyle(fontSize = 14.sp, color = NoteText))
                 }
             }
-            State.Deleted -> Empty(context, "Dieses Post-it wurde gelöscht.", "Antippen zum Öffnen von Notes")
-            is State.OtherContext -> Empty(context, "Post-it liegt in einem anderen Kontext.", "Es erscheint wieder, wenn du dorthin wechselst.")
-            State.NotConfigured -> Empty(context, "Kein Post-it gewählt.", "Widget neu einrichten")
+            State.Deleted -> Empty(context, "Gelöscht")
+            is State.OtherContext -> Empty(context, "Anderer Kontext")
+            State.NotConfigured -> Empty(context, "Kein Post-it")
         }
     }
 
     @Composable
-    private fun Empty(context: Context, title: String, hint: String) {
+    private fun Empty(context: Context, title: String) {
         Column(
             GlanceModifier.fillMaxSize().cornerRadius(16.dp).background(Color(0xFFE3E3E3)).padding(12.dp)
                 .clickable(actionStartActivity(appIntent(context) {})),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(title, style = TextStyle(fontWeight = FontWeight.Medium, color = NoteText))
-            Text(hint, style = TextStyle(fontSize = 12.sp, color = NoteText))
         }
     }
 }
@@ -172,7 +171,7 @@ class PinnedStickiesWidget : GlanceAppWidget(), KoinComponent {
                 ) { Text("+", style = TextStyle(fontSize = 22.sp, fontWeight = FontWeight.Bold, color = GlanceTheme.colors.onPrimary)) }
             }
             if (pinned.isEmpty()) {
-                Text("Keine angepinnten Post-its.", modifier = GlanceModifier.padding(4.dp), style = TextStyle(color = GlanceTheme.colors.onSurfaceVariant))
+                Text("—", modifier = GlanceModifier.padding(4.dp), style = TextStyle(color = GlanceTheme.colors.onSurfaceVariant))
             } else {
                 LazyColumn {
                     items(pinned, itemId = { it.id.hashCode().toLong() }) { s ->

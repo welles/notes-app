@@ -90,7 +90,7 @@
         if (_askForContext)
         {
             // First start in this browser: ask once which context to work in.
-            var reference = await Dialogs.ShowAsync<ContextPickerDialog>("In welchem Kontext arbeitest du hier?",
+            var reference = await Dialogs.ShowAsync<ContextPickerDialog>("Kontext",
                 new DialogOptions { MaxWidth = MaxWidth.ExtraSmall, FullWidth = true, BackdropClick = false, CloseOnEscapeKey = false });
             if (await reference.Result is { Canceled: false, Data: Guid chosen }) await SwitchAsync(chosen);
             else await SwitchAsync(Active.Id);

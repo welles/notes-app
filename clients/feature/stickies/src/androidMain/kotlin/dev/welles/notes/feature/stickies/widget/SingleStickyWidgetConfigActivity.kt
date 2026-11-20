@@ -68,8 +68,8 @@ class SingleStickyWidgetConfigActivity : ComponentActivity() {
                         contentPadding = PaddingValues(16.dp),
                         verticalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
-                        item { Text("Welches Post-it soll das Widget zeigen?", style = MaterialTheme.typography.titleLarge) }
-                        if (stickies?.isEmpty() == true) item { Text("Im aktiven Kontext gibt es noch keine Post-its.") }
+                        item { Text("Post-it", style = MaterialTheme.typography.titleLarge) }
+                        if (stickies?.isEmpty() == true) item { Text("Keine Post-its") }
                         items(stickies.orEmpty(), key = { it.id }) { s ->
                             Card(
                                 colors = CardDefaults.cardColors(containerColor = NoteColors.background(s.color), contentColor = NoteColors.text),
