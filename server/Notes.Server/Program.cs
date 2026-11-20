@@ -9,6 +9,11 @@ using Notes.Server;
 using Notes.Server.Api;
 using Notes.Server.Security;
 
+// Container healthcheck without curl in the runtime image: `Notes.Server --healthcheck`.
+if (args.Contains("--healthcheck")) return await Healthcheck.RunAsync();
+// Online backup of the SQLite database: `Notes.Server --backup /data/backup.db` (VACUUM INTO).
+if (args is ["--backup", var backupPath]) return await Backup.RunAsync(backupPath);
+
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddNotes();
@@ -60,5 +65,6 @@ app.MapRazorComponents<App>()
         .Select(m => m.GetType().Assembly).Where(a => a != typeof(Program).Assembly).Distinct().ToArray());
 
 app.Run();
+return 0;
 
 public partial class Program;

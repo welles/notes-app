@@ -1,0 +1,36 @@
+# Notes behind a Cloudflare Tunnel. No port is published to the host: notes is only reachable through cloudflared.
+#
+# 1. Copy to docker-compose.yml and create a .env next to it:
+#      TUNNEL_TOKEN=...                       (Zero Trust → Networks → Tunnels → your tunnel → token)
+#      CF_TEAM_DOMAIN=myteam.cloudflareaccess.com
+#      CF_AUDIENCE=...                        (AUD tag of the Access application)
+# 2. In the tunnel, add the public hostname notes.welles.app → http://notes:8080
+# 3. docker compose up -d
+services:
+  notes:
+    image: ghcr.io/welles/notes:latest
+    restart: unless-stopped
+    environment:
+      CloudflareAccess__TeamDomain: ${CF_TEAM_DOMAIN}
+      CloudflareAccess__Audience: ${CF_AUDIENCE}
+      # Optional: recommend updates to old clients (non-blocking hint)
+      # Notes__MinClientVersion__android: "1.2.0"
+      # Notes__MinClientVersion__desktop: "1.2.0"
+    volumes:
+      - notes-data:/data
+    networks: [notes]
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${TUNNEL_TOKEN}
+    depends_on: [notes]
+    networks: [notes]
+
+volumes:
+  notes-data:
+
+networks:
+  notes:

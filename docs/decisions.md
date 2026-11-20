@@ -45,3 +45,11 @@ Kurz und knapp, neueste unten.
 - **Board** mit zwei Drop-Zonen „Angepinnt“/„Weitere“: Ziehen zwischen den Zonen pinnt/löst, innerhalb wird per Mittelwert sortiert.
 - **Post-it-Farben** sind Pastelltöne mit immer dunklem Text, auch im Dark Mode. Die Akzentfarbe des Kontexts erscheint dezent als Linie unter der App-Bar.
 - **Keine externen Fonts/CDNs** (System-Schrift), alles kommt vom eigenen Server.
+
+## Schritt 4 – Docker & CI
+
+- **Healthcheck ohne curl im Image**: `dotnet Notes.Server.dll --healthcheck` ruft `/healthz` lokal auf. Hält das Runtime-Image klein und ohne Zusatzpakete.
+- **Backup** gleich mitgebaut: `--backup <datei>` macht `VACUUM INTO` im laufenden Betrieb (eigentlich Schritt 10).
+- **Image-Tags**: `server-vX.Y.Z` → `X.Y.Z` + `latest`. Bei normalen Pushes wird nur gebaut (kein Push), damit das Dockerfile nicht unbemerkt kaputtgeht.
+- **Kompatibilitäts-Check** als Skript (`scripts/check-api-compat.sh`), lokal und in CI gleich: `oasdiff breaking --fail-on ERR` gegen den letzten `server-v*`-Tag (oasdiff via Docker-Image), plus „Fixtures nur hinzufügen“.
+- **Owner im Image-Namen** kommt in CI aus `github.repository_owner`; README/Compose nennen `ghcr.io/welles/notes`.
