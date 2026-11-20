@@ -49,7 +49,7 @@ stdenv.mkDerivation (finalAttrs: {
 
   gradleFlags = [
     "-Pnotes.desktopOnly=true"
-    "-Pnotes.versionName=${version}"
+    "-Pnotes.version=${version}"
     "-Dorg.gradle.java.home=${jdk}"
     "-Dorg.gradle.java.installations.auto-download=false"
     "--no-configuration-cache"

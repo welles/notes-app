@@ -47,7 +47,7 @@ import org.koin.core.context.startKoin
 import org.koin.dsl.bind
 import org.koin.dsl.module
 
-val VERSION: String = System.getProperty("notes.version") ?: DesktopApp::class.java.`package`?.implementationVersion ?: "0.1.0-dev"
+val VERSION: String = System.getProperty("notes.version") ?: DesktopApp::class.java.`package`?.implementationVersion ?: "0-dev"
 
 private object DesktopApp
 

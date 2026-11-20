@@ -29,11 +29,12 @@ kotlin {
 compose.desktop {
     application {
         mainClass = "dev.welles.notes.desktop.MainKt"
-        jvmArgs += listOf("--add-opens", "java.desktop/sun.awt.X11=ALL-UNNAMED", "-Dnotes.version=" + providers.gradleProperty("notes.versionName").get())
+        jvmArgs += listOf("--add-opens", "java.desktop/sun.awt.X11=ALL-UNNAMED", "-Dnotes.version=" + notesVersion())
         nativeDistributions {
             targetFormats(TargetFormat.AppImage)
             packageName = "notes"
-            packageVersion = providers.gradleProperty("notes.versionName").get().substringBefore('-')
+            // jpackage wants MAJOR.MINOR.PATCH with MAJOR > 0
+            packageVersion = "${notesVersion().substringBefore('-').toInt().coerceAtLeast(1)}.0.0"
         }
     }
 }
@@ -51,3 +52,9 @@ tasks.register<Sync>("nixDistribution") {
         if (i >= 0) name = path.substring(i + marker.length).substringBefore('/') + "__" + name
     }
 }
+
+/** Release number from the repository's VERSION file; `-Pnotes.version=…` overrides it. */
+fun notesVersion(): String =
+    providers.gradleProperty("notes.version")
+        .orElse(providers.fileContents(rootProject.layout.projectDirectory.file("../VERSION")).asText.map { it.trim() })
+        .get()

@@ -39,7 +39,7 @@
           pkgs = (forAllSystems (p: p)).x86_64-linux;
           notes-desktop = pkgs.callPackage ./nix/notes-desktop.nix {
             src = ./.;
-            version = "0.1.0";
+            version = pkgs.lib.fileContents ./VERSION;
             runtimeLibs = desktopRuntimeLibs pkgs;
           };
         in

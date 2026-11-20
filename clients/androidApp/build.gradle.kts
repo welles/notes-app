@@ -11,8 +11,10 @@ android {
         applicationId = "dev.welles.notes"
         minSdk = libs.versions.android.minSdk.get().toInt()
         targetSdk = libs.versions.android.targetSdk.get().toInt()
-        versionCode = providers.gradleProperty("notes.versionCode").get().toInt()
-        versionName = providers.gradleProperty("notes.versionName").get()
+        // Release number N from ../VERSION (tag vN); versionCode = N
+        val notesVersion = notesVersion()
+        versionCode = notesVersion.substringBefore('-').toInt().coerceAtLeast(1)
+        versionName = notesVersion
     }
 
     // Release signing from environment (CI secrets); never stored in the repository.
@@ -73,3 +75,9 @@ androidComponents {
         }
     }
 }
+
+/** Release number from the repository's VERSION file; `-Pnotes.version=…` overrides it. */
+fun notesVersion(): String =
+    providers.gradleProperty("notes.version")
+        .orElse(providers.fileContents(rootProject.layout.projectDirectory.file("../VERSION")).asText.map { it.trim() })
+        .get()

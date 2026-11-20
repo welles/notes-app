@@ -1,7 +1,8 @@
 # syntax=docker/dockerfile:1
 
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
-ARG VERSION=0.0.0-dev
+# Release number N (tag vN), optionally with a suffix (N-<sha>)
+ARG VERSION=0-dev
 WORKDIR /src
 COPY server/*.props server/global.json server/Notes.slnx ./server/
 COPY server/Notes.Core/Notes.Core.csproj ./server/Notes.Core/
@@ -10,7 +11,7 @@ COPY server/Notes.Server/Notes.Server.csproj ./server/Notes.Server/
 RUN dotnet restore server/Notes.Server/Notes.Server.csproj
 COPY server/ ./server/
 RUN dotnet publish server/Notes.Server/Notes.Server.csproj -c Release -o /app --no-restore \
-      -p:Version=${VERSION} -p:OpenApiGenerateDocuments=false
+      -p:Version="${VERSION%%-*}.0.0" -p:InformationalVersion="${VERSION}" -p:OpenApiGenerateDocuments=false
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0
 WORKDIR /app
