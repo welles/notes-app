@@ -110,6 +110,49 @@ Sync läuft: Android beim Start/Vordergrund, ca. 2 s nach lokalen Änderungen, p
 
 Lokal gegen einen Dev-Server testen: Debug-Builds erlauben Klartext-HTTP zu `10.0.2.2` (Emulator) und `localhost` (`adb reverse tcp:5080 tcp:5080`).
 
+## Android-Release & Updates (Obtainium)
+
+### Keystore einmalig erzeugen und sichern
+
+```bash
+keytool -genkeypair -v -keystore notes-release.jks -alias notes -keyalg RSA -keysize 4096 -validity 36500
+```
+
+Den Keystore und die Passwörter **sicher aufbewahren** (z. B. im Passwortmanager), aber nie ins Repo legen. Geht der Keystore verloren, lassen sich keine Updates mehr über die installierte App spielen.
+
+GitHub-Secrets setzen:
+
+```bash
+gh secret set NOTES_KEYSTORE_BASE64 < <(base64 -w0 notes-release.jks)
+```
+
+```bash
+gh secret set NOTES_KEYSTORE_PASSWORD
+```
+
+```bash
+gh secret set NOTES_KEY_ALIAS --body notes
+```
+
+```bash
+gh secret set NOTES_KEY_PASSWORD
+```
+
+### Release bauen
+
+```bash
+git tag clients-v1.0.0 && git push origin clients-v1.0.0
+```
+
+Die Action baut eine signierte Release-APK (R8), `versionName` kommt aus dem Tag, `versionCode` = `major·1 000 000 + minor·1 000 + patch`, und hängt `notes-<version>.apk` an ein GitHub Release.
+
+### In Obtainium hinzufügen
+
+1. Obtainium → *App hinzufügen* → URL `https://github.com/welles/notes-app`.
+2. Unter *Filter für APK-Dateien (Regex)*: `notes-.*\.apk`.
+3. Da im Repo auch Server-Releases liegen können: *Release-Titel filtern* mit `Android` bzw. Tag-Filter `^clients-v`.
+4. Installieren. Spätere Tags erscheinen als Update; die Daten bleiben erhalten (gleicher Schlüssel, steigender `versionCode`).
+
 ## Konfiguration (Server)
 
 | Variable | Default | Bedeutung |

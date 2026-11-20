@@ -15,8 +15,20 @@ android {
         versionName = providers.gradleProperty("notes.versionName").get()
     }
 
+    // Release signing from environment (CI secrets); never stored in the repository.
+    val keystoreFile = providers.environmentVariable("NOTES_KEYSTORE_FILE").orNull
+    signingConfigs {
+        if (keystoreFile != null) create("release") {
+            storeFile = file(keystoreFile)
+            storePassword = providers.environmentVariable("NOTES_KEYSTORE_PASSWORD").get()
+            keyAlias = providers.environmentVariable("NOTES_KEY_ALIAS").get()
+            keyPassword = providers.environmentVariable("NOTES_KEY_PASSWORD").get()
+        }
+    }
+
     buildTypes {
         release {
+            if (keystoreFile != null) signingConfig = signingConfigs.getByName("release")
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
@@ -51,4 +63,13 @@ dependencies {
     implementation(libs.tink.android)
     implementation(libs.code.scanner)
     implementation(libs.lifecycle.process)
+}
+
+// Release APK named for Obtainium's filter: notes-<version>.apk
+androidComponents {
+    onVariants(selector().withBuildType("release")) { variant ->
+        variant.outputs.forEach { output ->
+            (output as? com.android.build.api.variant.impl.VariantOutputImpl)?.outputFileName?.set("notes-${output.versionName.get()}.apk")
+        }
+    }
 }

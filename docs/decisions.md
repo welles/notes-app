@@ -85,3 +85,19 @@ Kurz und knapp, neueste unten.
 - **Desktop-Zugangsdaten über `secret-tool`** (libsecret-CLI) statt JNA-Bindings an libsecret: deutlich weniger Code; das Nix-Paket bringt `secret-tool` mit. Fallback-Datei 0600.
 - **Debug-Builds** erlauben Klartext-HTTP nur zu `10.0.2.2`/`localhost` (eigenes Manifest-Overlay unter `src/debug`).
 - **Erprobt**: Emulator offline bearbeitet + Web gleichzeitig geändert → nach Reconnect gewinnt die neuere Änderung, die andere bleibt als „Konflikt: …“ erhalten; Desktop ↔ Handy synchronisieren in beide Richtungen.
+
+## Schritt 7 – Android-Widgets
+
+- **Glance im `androidMain` von `feature/stickies`** (Receiver, Manifest-Einträge und `appwidget-provider`-XML liegen im Modul; Android-Ressourcen im KMP-Modul per `androidResources.enable`).
+- **Widget-Daten als Flows innerhalb von `provideContent`**: Glance hält nach dem Platzieren eine Session offen; vorher gelesene Daten würden bei `update()` nicht neu geladen.
+- **Aktualisierung**: (1) ein Beobachter auf die Post-it-Tabelle und den aktiven Kontext (gedrosselt, 500 ms), (2) zusätzlich ein `SyncObserver`, der innerhalb des Syncs aktualisiert – auch im WorkManager-Job, bevor der Prozess beendet werden kann.
+- **Einzel-Widget-Konfiguration** (welches Post-it) liegt gerätelokal in `core_local_setting` (`widget.sticky.<appWidgetId>`).
+- **Widget öffnet die App über den Launch-Intent** mit Extras (`AppIntents`), damit das Feature-Modul `MainActivity` nicht kennen muss.
+- **Erprobt**: Web-Änderung → periodischer WorkManager-Sync → Widget zeigt neue Farbe und neuen Text, ohne dass die App geöffnet war.
+
+## Schritt 8 – Android-Release
+
+- **`versionCode` aus dem Tag** (`major·1 000 000 + minor·1 000 + patch`) statt aus der Run-Nummer: deterministisch und mit der Version steigend, auch wenn ein Release neu gebaut wird.
+- **Signing nur über Umgebungsvariablen** (`NOTES_KEYSTORE_FILE`, `…_PASSWORD`, `NOTES_KEY_ALIAS`, `NOTES_KEY_PASSWORD`); ohne sie bleibt der Release-Build unsigniert.
+- **APK-Name `notes-<version>.apk`** für Obtainiums Filter; Release-Titel enthält „Android“, damit Server-Tags nicht stören.
+- **Erprobt**: R8-Release 0.9.0 installiert, Daten angelegt, 0.9.1 als Update drüber installiert → Daten erhalten; Sync unter R8 funktioniert.
