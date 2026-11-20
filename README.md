@@ -116,10 +116,10 @@ Lokal gegen einen Dev-Server testen: Debug-Builds erlauben Klartext-HTTP zu `10.
 
 ### Installieren
 
-Flake-Input in der NixOS-/Home-Manager-Konfiguration:
+Flake-Input in der NixOS-/Home-Manager-Konfiguration, auf dem Branch `release` (zeigt immer auf das letzte Release, `nix flake update` holt also nur Releases):
 
 ```nix
-inputs.notes.url = "github:welles/notes-app";
+inputs.notes.url = "github:welles/notes-app/release";
 ```
 
 NixOS:
@@ -207,18 +207,13 @@ gh secret set NOTES_KEY_PASSWORD
 
 ### Release bauen
 
-```bash
-git tag clients-v1.0.0 && git push origin clients-v1.0.0
-```
-
-Die Action baut eine signierte Release-APK (R8), `versionName` kommt aus dem Tag, `versionCode` = `major·1 000 000 + minor·1 000 + patch`, und hängt `notes-<version>.apk` an ein GitHub Release.
+Siehe [Versionen und Releases](#versionen-und-releases). Die Action baut zum Tag `vN` eine signierte Release-APK (R8, `versionName` und `versionCode` = N) und hängt `notes-N.apk` an das GitHub Release.
 
 ### In Obtainium hinzufügen
 
 1. Obtainium → *App hinzufügen* → URL `https://github.com/welles/notes-app`.
 2. Unter *Filter für APK-Dateien (Regex)*: `notes-.*\.apk`.
-3. Da im Repo auch Server-Releases liegen können: *Release-Titel filtern* mit `Android` bzw. Tag-Filter `^clients-v`.
-4. Installieren. Spätere Tags erscheinen als Update; die Daten bleiben erhalten (gleicher Schlüssel, steigender `versionCode`).
+3. Installieren. Spätere Tags erscheinen als Update; die Daten bleiben erhalten (gleicher Schlüssel, steigender `versionCode`).
 
 ## Konfiguration (Server)
 
@@ -236,7 +231,7 @@ EF-Migrationen laufen beim Start automatisch. Health-Check: `GET /healthz` (ohne
 
 ## Betrieb mit Docker
 
-Das Image liegt unter `ghcr.io/welles/notes` (Tags `latest` und Versionsnummer, gebaut bei Git-Tags `server-v*`).
+Das Image liegt unter `ghcr.io/welles/notes` (Tags `latest` und `N`, gebaut beim Release-Tag `vN`).
 Es läuft als Non-Root-User, Daten liegen im Volume `/data`.
 
 ```bash
@@ -289,17 +284,23 @@ Checkliste: [`docs/adding-a-module.md`](docs/adding-a-module.md).
 
 ## CI
 
-- `.github/workflows/server.yml`: Build + Tests bei jedem Push; prüft, dass `api/openapi.json` aktuell ist; `scripts/check-api-compat.sh` vergleicht die Spec mit dem letzten `server-v*`-Tag (`oasdiff breaking`) und stellt sicher, dass veröffentlichte Fixtures nicht verändert wurden. Bei Tags `server-v*` wird das Image nach GHCR gepusht.
+- `.github/workflows/server.yml`: Build + Tests bei jedem Push; prüft, dass `api/openapi.json` aktuell ist; `scripts/check-api-compat.sh` vergleicht die Spec mit dem letzten Release-Tag `v*` (`oasdiff breaking`) und stellt sicher, dass veröffentlichte Fixtures nicht verändert wurden. Bei Tags `vN` wird das Image nach GHCR gepusht.
 
-- `.github/workflows/clients.yml`: Client-Tests, Android-/Desktop-Build, Nix-Paket (`nix build .#notes-desktop`); bei Tags `clients-v*` signierte Release-APK.
-- `.github/workflows/compat.yml`: echte Client-Sync-Engine gegen echten Server über Versionsgrenzen (`scripts/compat-e2e.sh`): aktuell↔aktuell, letzter `clients-v*`-Client gegen aktuellen Server, aktueller Client gegen letzten `server-v*`-Server. Lokal:
+- `.github/workflows/clients.yml`: Client-Tests, Android-/Desktop-Build, Nix-Paket (`nix build .#notes-desktop`); bei Tags `vN` signierte Release-APK als GitHub Release.
+- `.github/workflows/compat.yml`: echte Client-Sync-Engine gegen echten Server über Versionsgrenzen (`scripts/compat-e2e.sh`): aktuell↔aktuell, Clients des letzten Releases gegen aktuellen Server, aktuelle Clients gegen den Server des letzten Releases. Lokal:
 
 ```bash
 nix develop .#android --command scripts/compat-e2e.sh current current
 ```
 
-Release des Servers:
+## Versionen und Releases
+
+Server, Android und Desktop haben dieselbe Version: eine fortlaufende Zahl N aus der Datei `VERSION`, kein Semantic Versioning. Ein Release ist der Tag `vN` und baut alles aus demselben Commit: Image `ghcr.io/welles/notes:N`, APK `notes-N.apk` (`versionCode` N) und die Desktop-Version der Flake; danach zeigt der Branch `release` auf diesen Commit.
+
+Installiert und deployt wird nur, was ein Release ist: Der Server läuft mit einem Image-Tag N (andere Builds werden nicht gepusht), Obtainium sieht nur GitHub Releases, und die Flake wird über den Branch `release` eingebunden. Die Nummer steigt nur durch `scripts/release.sh`. Ob Server und Clients zusammenpassen, entscheiden Protokoll und Fähigkeiten (`/api/meta`), nicht die Nummer.
 
 ```bash
-git tag server-v1.0.0 && git push origin server-v1.0.0
+scripts/release.sh
 ```
+
+Das Skript taggt die Nummer aus `VERSION` bzw. erhöht sie vorher um eins, falls sie schon veröffentlicht ist, und pusht `main` und den Tag. Die CI bricht ab, wenn Tag und `VERSION` nicht übereinstimmen. Wo ein Werkzeug drei Stellen verlangt (.NET-Assembly-Version, jpackage), wird daraus `N.0.0`.

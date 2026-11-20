@@ -50,8 +50,8 @@ Kurz und knapp, neueste unten.
 
 - **Healthcheck ohne curl im Image**: `dotnet Notes.Server.dll --healthcheck` ruft `/healthz` lokal auf. Hält das Runtime-Image klein und ohne Zusatzpakete.
 - **Backup** gleich mitgebaut: `--backup <datei>` macht `VACUUM INTO` im laufenden Betrieb (eigentlich Schritt 10).
-- **Image-Tags**: `server-vX.Y.Z` → `X.Y.Z` + `latest`. Bei normalen Pushes wird nur gebaut (kein Push), damit das Dockerfile nicht unbemerkt kaputtgeht.
-- **Kompatibilitäts-Check** als Skript (`scripts/check-api-compat.sh`), lokal und in CI gleich: `oasdiff breaking --fail-on ERR` gegen den letzten `server-v*`-Tag (oasdiff via Docker-Image), plus „Fixtures nur hinzufügen“.
+- **Image-Tags**: Release-Tag `vN` → `N` + `latest` (siehe „Versionen“ unten). Bei normalen Pushes wird nur gebaut (kein Push), damit das Dockerfile nicht unbemerkt kaputtgeht.
+- **Kompatibilitäts-Check** als Skript (`scripts/check-api-compat.sh`), lokal und in CI gleich: `oasdiff breaking --fail-on ERR` gegen den letzten Release-Tag `v*` (oasdiff via Docker-Image), plus „Fixtures nur hinzufügen“.
 - **Owner im Image-Namen** kommt in CI aus `github.repository_owner`; README/Compose nennen `ghcr.io/welles/notes`.
 
 ## Schritt 5 – Clients (KMP)
@@ -135,3 +135,9 @@ Kurz und knapp, neueste unten.
 - **Android nur im Vordergrund** (ProcessLifecycleOwner start/stop), Hintergrund weiter über WorkManager. **Desktop immer**, weil die Post-it-Fenster ständig sichtbar sind.
 - **Fähigkeit `sync.events` in `meta`**: Clients verbinden sich nur, wenn der Server sie meldet – ältere Server bleiben beim Polling.
 - **Nicht gemessen**: Latenz und Verhalten über den echten Cloudflare-Tunnel (würde eine öffentliche Test-URL erfordern).
+
+## Versionen
+
+- **Eine Version für alles, fortlaufend gezählt**: Server, Android und Desktop aus demselben Commit tragen dieselbe Nummer N (`VERSION`, Tag `vN`), statt getrennter `server-v*`/`clients-v*`-Tags mit Semantic Versioning (Abweichung von der Spec). Kompatibilität hängt an Protokoll und Fähigkeiten, nicht an der Nummer; jedes Release enthält beide Seiten, auch wenn sich nur eine geändert hat.
+- **Wo drei Stellen nötig sind**: .NET-Assembly-Version und jpackage bekommen `N.0.0`; Android nimmt N direkt als `versionCode`.
+- **Nur Releases werden installiert**: Image-Tags nur bei `vN`, APKs nur als GitHub Release, die Desktop-Flake über den Branch `release`, den nur die Release-Action vorschiebt.

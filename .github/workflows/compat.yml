@@ -33,9 +33,9 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
       - name: Run
         run: |
-          latest() { git tag --list "$1" --sort=-v:refname | head -n1; }
+          latest() { git tag --list "$1" --sort=-v:refname | grep -v "^${GITHUB_REF_NAME:-__none__}$" | head -n1; }
           case "${{ matrix.pair }}" in
             current-current)  scripts/compat-e2e.sh current current ;;
-            released-clients) t=$(latest 'clients-v*'); [ -z "$t" ] && { echo "no clients-v* tag yet"; exit 0; }; scripts/compat-e2e.sh current "$t" ;;
-            released-server)  t=$(latest 'server-v*');  [ -z "$t" ] && { echo "no server-v* tag yet"; exit 0; }; scripts/compat-e2e.sh "$t" current ;;
+            released-clients) t=$(latest 'v[0-9]*'); [ -z "$t" ] && { echo "no release tag v* yet"; exit 0; }; scripts/compat-e2e.sh current "$t" ;;
+            released-server)  t=$(latest 'v[0-9]*'); [ -z "$t" ] && { echo "no release tag v* yet"; exit 0; }; scripts/compat-e2e.sh "$t" current ;;
           esac

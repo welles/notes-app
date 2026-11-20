@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # Compatibility gate (docs/decisions.md, spec 5.2):
-#  1. api/openapi.json has no breaking changes compared to the last released server (tag server-v*).
+#  1. api/openapi.json has no breaking changes compared to the last released server (tag v*).
 #  2. Published contract fixtures were not modified or deleted (only additions allowed).
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
 
-base_tag=$(git tag --list 'server-v*' --sort=-v:refname | grep -v "^${GITHUB_REF_NAME:-__none__}$" | head -n1 || true)
+base_tag=$(git tag --list 'v[0-9]*' --sort=-v:refname | grep -v "^${GITHUB_REF_NAME:-__none__}$" | head -n1 || true)
 if [[ -z "$base_tag" ]]; then
-  echo "No released server version (server-v*) yet – nothing to compare against."
+  echo "No release (tag v*) yet – nothing to compare against."
   exit 0
 fi
 echo "Comparing against $base_tag"
