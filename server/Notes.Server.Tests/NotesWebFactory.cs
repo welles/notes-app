@@ -27,6 +27,7 @@ public sealed class NotesWebFactory(bool cloudflareAccess = false) : WebApplicat
         builder.UseSetting("CloudflareAccess:TeamDomain", TeamDomain);
         builder.UseSetting("CloudflareAccess:Audience", Audience);
         builder.UseSetting("Notes:MinClientVersion:android", "1.2.0");
+        builder.UseSetting("Notes:DataProtectionKeysPath", Path.Combine(Path.GetTempPath(), "notes-test-keys"));
         builder.ConfigureServices(s => s.Replace(ServiceDescriptor.Singleton<ICloudflareKeyProvider>(new StaticKeyProvider(SigningKey))));
     }
 

@@ -28,7 +28,7 @@ public static class StickyColors
 {
     public const string Default = "yellow";
 
-    public static readonly IReadOnlyList<string> All = ["yellow", "green", "blue", "pink", "purple", "orange", "gray"];
+    public static IReadOnlyList<string> All => Notes.Core.Web.NoteColors.Names;
 
     /// <summary>Display fallback for unknown values (the stored value itself is never changed).</summary>
     public static string ForDisplay(string? color) => color is not null && All.Contains(color) ? color : Default;

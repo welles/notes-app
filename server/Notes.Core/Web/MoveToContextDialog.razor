@@ -1,0 +1,54 @@
+@* Picks a target context for "In Kontext verschieben …" (core action, available for every entity). *@
+@inject ContextService Contexts
+
+<MudDialog>
+    <DialogContent>
+        @if (_contexts is null)
+        {
+            <MudProgressLinear Indeterminate="true" />
+        }
+        else if (_contexts.Count == 0)
+        {
+            <MudText>Es gibt keinen anderen Kontext.</MudText>
+        }
+        else
+        {
+            <MudList T="Guid" Dense="true">
+                @foreach (var c in _contexts)
+                {
+                    <MudListItem T="Guid" OnClick="() => Dialog.Close(DialogResult.Ok(c.Id))">
+                        <div class="d-flex align-center gap-2">
+                            <span class="notes-dot" style="background:@NoteColors.Accent(c.Color)"></span>
+                            @c.Name
+                        </div>
+                    </MudListItem>
+                }
+            </MudList>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="() => Dialog.Cancel()">Abbrechen</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] public required IMudDialogInstance Dialog { get; set; }
+
+    /// <summary>Context the entity is in now (not offered).</summary>
+    [Parameter] public Guid Exclude { get; set; }
+
+    private List<Context>? _contexts;
+
+    protected override async Task OnInitializedAsync() =>
+        _contexts = (await Contexts.ListAsync()).Where(c => c.Id != Exclude).ToList();
+
+    /// <summary>Shows the dialog; returns the chosen context id or null.</summary>
+    public static async Task<Guid?> PickAsync(IDialogService dialogs, Guid exclude, string title = "In Kontext verschieben …")
+    {
+        var reference = await dialogs.ShowAsync<MoveToContextDialog>(title,
+            new DialogParameters<MoveToContextDialog> { { x => x.Exclude, exclude } },
+            new DialogOptions { MaxWidth = MaxWidth.ExtraSmall, FullWidth = true, CloseOnEscapeKey = true });
+        var result = await reference.Result;
+        return result is { Canceled: false, Data: Guid id } ? id : null;
+    }
+}

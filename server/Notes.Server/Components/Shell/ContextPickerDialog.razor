@@ -1,0 +1,42 @@
+@* First start in a browser: choose an existing context or create one. *@
+@inject ContextService Contexts
+
+<MudDialog>
+    <DialogContent>
+        <MudText Typo="Typo.body2" Class="mb-2">Alles, was du hier siehst und erfasst, gehört zu diesem Kontext. Wechseln kannst du später oben neben „Notes“.</MudText>
+        <MudList T="Guid" Dense="true">
+            @foreach (var c in _contexts)
+            {
+                <MudListItem T="Guid" OnClick="() => Dialog.Close(DialogResult.Ok(c.Id))">
+                    <div class="d-flex align-center gap-2">
+                        <span class="notes-dot" style="background:@NoteColors.Accent(c.Color)"></span>@c.Name
+                    </div>
+                </MudListItem>
+            }
+        </MudList>
+        <div class="d-flex align-center gap-2 mt-2">
+            <MudTextField @bind-Value="_newName" Placeholder="Neuer Kontext, z. B. Arbeit" Immediate="true" OnKeyDown="OnKeyDown" />
+            <MudButton Disabled="string.IsNullOrWhiteSpace(_newName)" OnClick="CreateAsync">Anlegen</MudButton>
+        </div>
+    </DialogContent>
+</MudDialog>
+
+@code {
+    [CascadingParameter] public required IMudDialogInstance Dialog { get; set; }
+
+    private IReadOnlyList<Context> _contexts = [];
+    private string? _newName;
+
+    protected override async Task OnInitializedAsync() => _contexts = await Contexts.ListAsync();
+
+    private async Task OnKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") await CreateAsync();
+    }
+
+    private async Task CreateAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_newName)) return;
+        Dialog.Close(DialogResult.Ok(await Contexts.CreateAsync(_newName)));
+    }
+}

@@ -1,0 +1,30 @@
+@* Unobtrusive context switch: name of the active context, click opens the selection. *@
+@inject ActiveContext Active
+@inject NavigationManager Navigation
+
+<MudMenu AnchorOrigin="Origin.BottomLeft" TransformOrigin="Origin.TopLeft" Dense="true">
+    <ActivatorContent>
+        <MudButton Variant="Variant.Text" Size="Size.Small" EndIcon="@Icons.Material.Filled.ArrowDropDown" Class="notes-context-button" title="Kontext wechseln">
+            <span class="notes-dot" style="background:@NoteColors.Accent(Active.Current?.Color)"></span>
+            <span class="notes-context-name">@Active.Current?.Name</span>
+        </MudButton>
+    </ActivatorContent>
+    <ChildContent>
+        @foreach (var c in Contexts)
+        {
+            <MudMenuItem OnClick="() => OnSwitch.InvokeAsync(c.Id)">
+                <div class="d-flex align-center gap-2">
+                    <span class="notes-dot" style="background:@NoteColors.Accent(c.Color)"></span>
+                    <span class="@(c.Id == Active.Id ? "font-weight-bold" : "")">@c.Name</span>
+                </div>
+            </MudMenuItem>
+        }
+        <MudDivider />
+        <MudMenuItem Icon="@Icons.Material.Outlined.Settings" OnClick="@(() => Navigation.NavigateTo("/contexts"))">Kontexte verwalten …</MudMenuItem>
+    </ChildContent>
+</MudMenu>
+
+@code {
+    [Parameter] public IReadOnlyList<Context> Contexts { get; set; } = [];
+    [Parameter] public EventCallback<Guid> OnSwitch { get; set; }
+}

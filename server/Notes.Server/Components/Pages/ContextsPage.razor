@@ -1,0 +1,115 @@
+@page "/contexts"
+@implements IDisposable
+@inject ContextService Contexts
+@inject EntityActions Actions
+@inject ActiveContext Active
+@inject EventBus Events
+@inject IDialogService Dialogs
+@inject ISnackbar Snackbar
+
+<PageTitle>Kontexte · Notes</PageTitle>
+
+<MudText Typo="Typo.h6" Class="mb-4">Kontexte</MudText>
+
+<MudPaper Class="pa-2" Outlined="true" Style="max-width:720px">
+    @foreach (var (c, index) in _contexts.Select((c, i) => (c, i)))
+    {
+        <div class="d-flex align-center gap-2 pa-2 flex-wrap">
+            <MudMenu Dense="true">
+                <ActivatorContent>
+                    <button type="button" class="notes-swatch" style="background:@NoteColors.Accent(c.Color)" title="Farbe"></button>
+                </ActivatorContent>
+                <ChildContent>
+                    <div class="d-flex flex-wrap gap-1 pa-2" style="max-width:150px">
+                        @foreach (var color in NoteColors.Names)
+                        {
+                            <button type="button" class="notes-swatch @(color == c.Color ? "selected" : "")" style="background:@NoteColors.Accent(color)"
+                                    title="@NoteColors.Label(color)" @onclick="() => Contexts.UpdateAsync(c.Id, color: color)"></button>
+                        }
+                        <MudButton Size="Size.Small" OnClick="() => Contexts.UpdateAsync(c.Id, clearColor: true)">Keine</MudButton>
+                    </div>
+                </ChildContent>
+            </MudMenu>
+            <MudTextField T="string" Value="c.Name" ValueChanged="name => RenameAsync(c, name)" Variant="Variant.Text" Margin="Margin.Dense" Style="min-width:160px" />
+            <MudText Typo="Typo.caption" Class="mud-text-secondary">@_counts.GetValueOrDefault(c.Id) Einträge@(c.Id == Context.DefaultId ? " · Standard" : "")@(c.Id == Active.Id ? " · aktiv hier" : "")</MudText>
+            <MudSpacer />
+            <MudIconButton Icon="@Icons.Material.Filled.ArrowUpward" Size="Size.Small" Disabled="index == 0" OnClick="() => MoveAsync(index, -1)" title="Nach oben" />
+            <MudIconButton Icon="@Icons.Material.Filled.ArrowDownward" Size="Size.Small" Disabled="index == _contexts.Count - 1" OnClick="() => MoveAsync(index, 1)" title="Nach unten" />
+            <MudButton Size="Size.Small" Disabled="_counts.GetValueOrDefault(c.Id) == 0" OnClick="() => MoveAllAsync(c)">Alles verschieben …</MudButton>
+            <MudIconButton Icon="@Icons.Material.Outlined.Delete" Size="Size.Small"
+                           Disabled="c.Id == Context.DefaultId || _counts.GetValueOrDefault(c.Id) > 0"
+                           title="@(c.Id == Context.DefaultId ? "Der Standardkontext kann nicht gelöscht werden" : _counts.GetValueOrDefault(c.Id) > 0 ? "Nur leere Kontexte können gelöscht werden" : "Löschen")"
+                           OnClick="() => DeleteAsync(c)" />
+        </div>
+        <MudDivider />
+    }
+    <div class="d-flex align-center gap-2 pa-2">
+        <MudTextField @bind-Value="_newName" Placeholder="Neuer Kontext" Immediate="true" Margin="Margin.Dense" OnKeyDown="OnNewKeyDown" />
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="string.IsNullOrWhiteSpace(_newName)" OnClick="CreateAsync">Anlegen</MudButton>
+    </div>
+</MudPaper>
+
+@code {
+    private IReadOnlyList<Context> _contexts = [];
+    private Dictionary<Guid, int> _counts = [];
+    private string? _newName;
+    private IDisposable? _subscription;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _subscription = Events.Subscribe(_ => InvokeAsync(async () => { await LoadAsync(); StateHasChanged(); }));
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _contexts = await Contexts.ListAsync();
+        var counts = new Dictionary<Guid, int>();
+        foreach (var c in _contexts) counts[c.Id] = (await Actions.ListInContextAsync(c.Id)).Count;
+        _counts = counts;
+    }
+
+    private async Task RenameAsync(Context c, string name)
+    {
+        if (string.IsNullOrWhiteSpace(name) || name == c.Name) return;
+        await Contexts.UpdateAsync(c.Id, name: name);
+    }
+
+    private async Task MoveAsync(int index, int delta)
+    {
+        var list = _contexts.ToList();
+        var item = list[index];
+        list.RemoveAt(index);
+        list.Insert(index + delta, item);
+        for (var i = 0; i < list.Count; i++)
+            if (list[i].Position != i) await Contexts.UpdateAsync(list[i].Id, position: i);
+    }
+
+    private async Task MoveAllAsync(Context from)
+    {
+        if (await MoveToContextDialog.PickAsync(Dialogs, from.Id, $"Alles aus „{from.Name}“ verschieben nach …") is not { } to) return;
+        await Contexts.MoveAllAsync(from.Id, to);
+        Snackbar.Add("Alles verschoben", Severity.Success);
+    }
+
+    private async Task DeleteAsync(Context c)
+    {
+        if (await Dialogs.ShowMessageBoxAsync("Kontext löschen", $"„{c.Name}“ löschen?", yesText: "Löschen", cancelText: "Abbrechen") != true) return;
+        if (!await Contexts.TryDeleteAsync(c.Id))
+            Snackbar.Add("Der Kontext ist nicht leer (mehr) und wurde nicht gelöscht.", Severity.Warning);
+    }
+
+    private async Task OnNewKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") await CreateAsync();
+    }
+
+    private async Task CreateAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_newName)) return;
+        await Contexts.CreateAsync(_newName);
+        _newName = null;
+    }
+
+    public void Dispose() => _subscription?.Dispose();
+}

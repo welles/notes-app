@@ -1,0 +1,123 @@
+@inherits LayoutComponentBase
+@implements IDisposable
+@inject ModuleSet Modules
+@inject ContextService Contexts
+@inject ActiveContext Active
+@inject EventBus Events
+@inject IDialogService Dialogs
+@inject ISnackbar Snackbar
+@inject IJSRuntime JS
+
+<MudThemeProvider @ref="_themeProvider" Theme="_theme" @bind-IsDarkMode="_dark" />
+<MudPopoverProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
+
+<MudLayout>
+    <MudAppBar Elevation="1" Dense="true" Color="Color.Default" Class="notes-appbar">
+        @if (ShowNavigation)
+        {
+            <MudIconButton Icon="@Icons.Material.Filled.Menu" Edge="Edge.Start" OnClick="() => _drawer = !_drawer" />
+        }
+        <MudLink Href="/" Typo="Typo.h6" Color="Color.Inherit" Underline="Underline.None" Class="notes-logo">Notes</MudLink>
+        <ContextSwitcher Contexts="_contexts" OnSwitch="SwitchAsync" />
+        <QuickCapture />
+    </MudAppBar>
+    @if (ShowNavigation)
+    {
+        <MudDrawer @bind-Open="_drawer" ClipMode="DrawerClipMode.Always" Elevation="1">
+            <MudNavMenu>
+                @foreach (var m in Modules.Modules)
+                {
+                    <MudNavLink Href="@m.Navigation.Href" Icon="@m.Navigation.Icon" Match="NavLinkMatch.Prefix">@m.Navigation.Title</MudNavLink>
+                }
+            </MudNavMenu>
+        </MudDrawer>
+    }
+    <MudMainContent>
+        <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="py-4 notes-accent" Style="@($"--notes-accent:{NoteColors.Accent(Active.Current?.Color, "gray")}")">
+            @if (_ready)
+            {
+                @Body
+            }
+        </MudContainer>
+    </MudMainContent>
+</MudLayout>
+
+@code {
+    [CascadingParameter(Name = "InitialContextId")] public string? InitialContextId { get; set; }
+
+    private readonly MudTheme _theme = new()
+    {
+        PaletteLight = new PaletteLight { Primary = "#4f5bd5", AppbarBackground = "#ffffff" },
+        PaletteDark = new PaletteDark { Primary = "#8c96ff" },
+        LayoutProperties = new LayoutProperties { DefaultBorderRadius = "8px" },
+    };
+
+    private MudThemeProvider? _themeProvider;
+    private bool _dark;
+    private bool _drawer = true;
+    private bool _ready;
+    private bool _askForContext;
+    private IReadOnlyList<Context> _contexts = [];
+    private IDisposable? _subscription;
+
+    /// <summary>A drawer is only shown once there is more than one module.</summary>
+    private bool ShowNavigation => Modules.Modules.Count > 1;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _contexts = await Contexts.ListAsync();
+        var wanted = Guid.TryParse(InitialContextId, out var id) ? _contexts.FirstOrDefault(c => c.Id == id) : null;
+        _askForContext = InitialContextId is null;
+        await Active.SetAsync(wanted ?? _contexts.First(c => c.Id == Context.DefaultId));
+        if (InitialContextId is not null && wanted is null)
+            Snackbar.Add($"Der gewählte Kontext existiert nicht mehr – zurück zu „{Active.Current!.Name}“.", Severity.Info);
+        _ready = true;
+        _subscription = Events.Subscribe(new HashSet<string> { Context.TypeName }, _ => InvokeAsync(OnContextsChangedAsync));
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        if (_themeProvider is not null)
+        {
+            _dark = await _themeProvider.GetSystemDarkModeAsync();
+            await _themeProvider.WatchSystemDarkModeAsync(dark => { _dark = dark; return InvokeAsync(StateHasChanged); });
+            StateHasChanged();
+        }
+        await JS.InvokeVoidAsync("notes.init");
+        if (_askForContext)
+        {
+            // First start in this browser: ask once which context to work in.
+            var reference = await Dialogs.ShowAsync<ContextPickerDialog>("In welchem Kontext arbeitest du hier?",
+                new DialogOptions { MaxWidth = MaxWidth.ExtraSmall, FullWidth = true, BackdropClick = false, CloseOnEscapeKey = false });
+            if (await reference.Result is { Canceled: false, Data: Guid chosen }) await SwitchAsync(chosen);
+            else await SwitchAsync(Active.Id);
+        }
+    }
+
+    private async Task SwitchAsync(Guid id)
+    {
+        _contexts = await Contexts.ListAsync();
+        if (_contexts.FirstOrDefault(c => c.Id == id) is not { } context) return;
+        await JS.InvokeVoidAsync("notes.setCookie", App.ContextCookie, id.ToString());
+        await Active.SetAsync(context);
+        StateHasChanged();
+    }
+
+    private async Task OnContextsChangedAsync()
+    {
+        _contexts = await Contexts.ListAsync();
+        if (_contexts.FirstOrDefault(c => c.Id == Active.Id) is { } current)
+            await Active.SetAsync(current); // renamed / recoloured elsewhere
+        else
+        {
+            await SwitchAsync(Context.DefaultId);
+            Snackbar.Add($"Der aktive Kontext wurde gelöscht – zurück zu „{Active.Current!.Name}“.", Severity.Info);
+        }
+        StateHasChanged();
+    }
+
+    public void Dispose() => _subscription?.Dispose();
+}

@@ -35,3 +35,13 @@ Kurz und knapp, neueste unten.
 - **JWKS von Cloudflare** wird 1 h gecacht; bei unbekannter `kid` (Schlüsselrotation) wird höchstens einmal pro Minute neu geladen.
 - **Build-Zeit-OpenAPI** (`Microsoft.Extensions.ApiDescription.Server`) führt `Program.cs` aus; Konfigurationsprüfung und Migration werden dabei übersprungen. Ein Test prüft, dass `api/openapi.json` zum laufenden Server passt.
 - **Fixtures** liegen unter `api/fixtures/<entityType>/` bzw. `_future/`; Format siehe `api/fixtures/README.md`.
+
+## Schritt 3 – Web
+
+- **Aktiver Kontext pro Browser als Cookie `notes-context`**: so kennt schon das Prerendering den Kontext. Fehlt das Cookie, fragt ein Dialog einmalig.
+- **`ActiveContext` (scoped pro Blazor-Circuit), `NoteColors` und `MoveToContextDialog` liegen in `Notes.Core`** (Razor-SDK), damit Module sie nutzen können, ohne einander zu kennen.
+- **`IModule.Navigation`** liefert den Navigationseintrag; ein Drawer erscheint erst ab zwei Modulen. `/` leitet auf das erste Modul um.
+- **Schnellerfassung**: Enter wird im Browser abgefangen (Text lesen + Feld sofort leeren), damit schnelles Tippen nie zwei Notizen vermischt. `N` fokussiert das Feld.
+- **Board** mit zwei Drop-Zonen „Angepinnt“/„Weitere“: Ziehen zwischen den Zonen pinnt/löst, innerhalb wird per Mittelwert sortiert.
+- **Post-it-Farben** sind Pastelltöne mit immer dunklem Text, auch im Dark Mode. Die Akzentfarbe des Kontexts erscheint dezent als Linie unter der App-Bar.
+- **Keine externen Fonts/CDNs** (System-Schrift), alles kommt vom eigenen Server.

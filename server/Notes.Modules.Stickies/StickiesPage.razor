@@ -1,0 +1,169 @@
+@page "/stickies"
+@implements IDisposable
+@inject StickyService Stickies
+@inject EntityActions Actions
+@inject CaptureTargetRegistry Targets
+@inject ActiveContext Active
+@inject EventBus Events
+@inject IDialogService Dialogs
+@inject ISnackbar Snackbar
+
+<PageTitle>Post-its · Notes</PageTitle>
+
+<div class="d-flex align-center mb-4 gap-2">
+    <MudText Typo="Typo.h6">Post-its</MudText>
+    <MudSpacer />
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="CreateAsync">Neues Post-it</MudButton>
+</div>
+
+@if (_items is null)
+{
+    <MudProgressLinear Indeterminate="true" />
+}
+else if (_items.Count == 0)
+{
+    <div class="notes-empty">
+        <MudIcon Icon="@Icons.Material.Outlined.StickyNote2" Size="Size.Large" />
+        <MudText>Noch keine Post-its in „@Active.Current?.Name“. Tippe oben etwas ein oder drücke <kbd>N</kbd>.</MudText>
+    </div>
+}
+else
+{
+    <MudDropContainer T="Sticky" @ref="_container" Items="_items" ItemsSelector="@((s, zone) => zone == (s.Pinned ? PinnedZone : OtherZone))"
+                      ItemDropped="OnDroppedAsync" Class="d-flex flex-column gap-4">
+        <ChildContent>
+            @if (_items.Any(s => s.Pinned))
+            {
+                <MudText Typo="Typo.overline">Angepinnt</MudText>
+            }
+            <MudDropZone T="Sticky" Identifier="@PinnedZone" AllowReorder="true"
+                         Class="@(_items.Any(s => s.Pinned) ? "notes-board" : "notes-board notes-board-empty")" />
+            @if (_items.Any(s => s.Pinned))
+            {
+                <MudText Typo="Typo.overline">Weitere</MudText>
+            }
+            <MudDropZone T="Sticky" Identifier="@OtherZone" AllowReorder="true" Class="notes-board" />
+        </ChildContent>
+        <ItemRenderer>
+            <StickyCard Sticky="context" ConvertTargets="ConvertTargets"
+                        OnOpen="() => EditAsync(context)"
+                        OnTogglePin="() => UpdateAsync(context, new StickyPatch(Pinned: !context.Pinned))"
+                        OnColor="c => UpdateAsync(context, new StickyPatch(Color: c))"
+                        OnMove="() => MoveAsync(context)"
+                        OnConvert="t => ConvertAsync(context, t)"
+                        OnDelete="() => DeleteAsync(context)" />
+        </ItemRenderer>
+    </MudDropContainer>
+}
+
+@code {
+    private const string PinnedZone = "pinned";
+    private const string OtherZone = "others";
+
+    private List<Sticky>? _items;
+    private MudDropContainer<Sticky>? _container;
+    private IDisposable? _subscription;
+
+    /// <summary>"Convert to …" only appears when another module offers a capture target (none in v1).</summary>
+    private IReadOnlyList<ICaptureTarget> ConvertTargets =>
+        Targets.ConversionAvailable ? Targets.All.Where(t => t.EntityType != Sticky.TypeName).ToList() : [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        Active.Changed += OnContextChanged;
+        _subscription = Events.Subscribe(new HashSet<string> { Sticky.TypeName }, _ => InvokeAsync(ReloadAsync));
+        await ReloadAsync();
+    }
+
+    private Task OnContextChanged() => InvokeAsync(ReloadAsync);
+
+    private async Task ReloadAsync()
+    {
+        _items = (await Stickies.ListAsync(Active.Id)).ToList();
+        StateHasChanged();
+        _container?.Refresh();
+    }
+
+    private async Task CreateAsync()
+    {
+        if (await StickyEditDialog.ShowAsync(Dialogs, null) is not { } r) return;
+        if (string.IsNullOrWhiteSpace(r.Content) && r.Title is null) return;
+        var id = await Stickies.CreateAsync(Active.Id, r.Title, r.Content, r.Color);
+        if (r.Pinned && await Stickies.GetAsync(id) is { } created)
+            await Stickies.UpdateAsync(id, created.Version, new StickyPatch(Pinned: true));
+    }
+
+    private async Task EditAsync(Sticky sticky)
+    {
+        if (await StickyEditDialog.ShowAsync(Dialogs, sticky) is not { } r) return;
+        var patch = new StickyPatch(
+            Title: r.Title != sticky.Title && r.Title is not null ? r.Title : null,
+            ClearTitle: r.Title is null && sticky.Title is not null,
+            Content: r.Content != sticky.Content ? r.Content : null,
+            Color: r.Color != sticky.Color ? r.Color : null,
+            Pinned: r.Pinned != sticky.Pinned ? r.Pinned : null);
+        if (patch == new StickyPatch()) return;
+        await UpdateAsync(sticky, patch);
+    }
+
+    private async Task UpdateAsync(Sticky sticky, StickyPatch patch)
+    {
+        var result = await Stickies.UpdateAsync(sticky.Id, sticky.Version, patch);
+        if (result.Status == PushStatus.Conflict)
+            Snackbar.Add(result.ConflictCopy is null
+                ? "Das Post-it wurde inzwischen woanders geändert."
+                : "Das Post-it wurde inzwischen woanders geändert – eine Konfliktkopie wurde angelegt.", Severity.Warning);
+    }
+
+    private async Task DeleteAsync(Sticky sticky)
+    {
+        var result = await Stickies.DeleteAsync(sticky.Id, sticky.Version);
+        if (result.Status != PushStatus.Accepted)
+        {
+            Snackbar.Add("Das Post-it wurde inzwischen woanders geändert und deshalb nicht gelöscht.", Severity.Warning);
+            return;
+        }
+        Snackbar.Add("Post-it gelöscht", Severity.Normal, o =>
+        {
+            o.Action = "Rückgängig";
+            o.ActionColor = Color.Primary;
+            o.OnClick = async _ => await Stickies.RestoreAsync(sticky.Id);
+        });
+    }
+
+    private async Task MoveAsync(Sticky sticky)
+    {
+        if (await MoveToContextDialog.PickAsync(Dialogs, sticky.ContextId) is not { } target) return;
+        await Actions.MoveToContextAsync(new EntityRef(Sticky.TypeName, sticky.Id), target);
+        Snackbar.Add("Post-it verschoben", Severity.Normal);
+    }
+
+    private async Task ConvertAsync(Sticky sticky, ICaptureTarget target)
+    {
+        var delete = await Dialogs.ShowMessageBoxAsync($"In {target.DisplayName} umwandeln",
+            "Soll das Post-it danach gelöscht werden?", yesText: "Umwandeln & löschen", noText: "Umwandeln & behalten", cancelText: "Abbrechen");
+        if (delete is null) return;
+        await Actions.ConvertAsync(new EntityRef(Sticky.TypeName, sticky.Id), target.Key, delete.Value);
+        Snackbar.Add($"In {target.DisplayName} umgewandelt", Severity.Success);
+    }
+
+    private async Task OnDroppedAsync(MudItemDropInfo<Sticky> drop)
+    {
+        if (drop.Item is not { } sticky || _items is null) return;
+        var toPinned = drop.DropzoneIdentifier == PinnedZone;
+        var zone = _items.Where(s => s.Pinned == toPinned && s.Id != sticky.Id).ToList();
+        var index = Math.Clamp(drop.IndexInZone, 0, zone.Count);
+        var after = index > 0 ? zone[index - 1].Id : (Guid?)null;
+        var before = index < zone.Count ? zone[index].Id : (Guid?)null;
+
+        if (toPinned != sticky.Pinned)
+            await Stickies.UpdateAsync(sticky.Id, sticky.Version, new StickyPatch(Pinned: toPinned));
+        await Stickies.ReorderAsync(sticky.Id, after, before);
+    }
+
+    public void Dispose()
+    {
+        Active.Changed -= OnContextChanged;
+        _subscription?.Dispose();
+    }
+}

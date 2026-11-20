@@ -1,0 +1,9 @@
+@page "/"
+@inject ModuleSet Modules
+@inject NavigationManager Navigation
+
+@* No dashboard in v1: the start page is the (first) module. *@
+
+@code {
+    protected override void OnInitialized() => Navigation.NavigateTo(Modules.Modules[0].Navigation.Href, replace: true);
+}

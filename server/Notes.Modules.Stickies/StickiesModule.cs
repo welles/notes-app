@@ -13,6 +13,8 @@ public sealed class StickiesModule : IModule
     public string Key => ModuleKey;
     public string DisplayName => "Post-its";
 
+    public ModuleNavigation Navigation { get; } = new("Post-its", "/stickies", MudBlazor.Icons.Material.Outlined.StickyNote2);
+
     public void ConfigureServices(IServiceCollection services)
     {
         services.AddSingleton<ISyncHandler, StickySyncHandler>();

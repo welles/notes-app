@@ -1,0 +1,47 @@
+@* Global quick capture: always reachable, "N" focuses it, Enter saves into the default capture target of the active context.
+   Enter is handled in JS (read + clear immediately) so fast typing never mixes two notes. *@
+@implements IAsyncDisposable
+@inject EntityActions Actions
+@inject CaptureTargetRegistry Targets
+@inject ActiveContext Active
+@inject ISnackbar Snackbar
+@inject IJSRuntime JS
+
+<div class="notes-capture">
+    <MudTextField T="string" Placeholder="@($"Schnell notieren … (N) → {Targets.Default.DisplayName} in „{Active.Current?.Name}“")"
+                  Variant="Variant.Outlined" Margin="Margin.Dense" InputId="notes-capture-input"
+                  Adornment="Adornment.End" AdornmentIcon="@Icons.Material.Filled.Add" OnAdornmentClick="SubmitFromButtonAsync" />
+</div>
+
+@code {
+    private DotNetObjectReference<QuickCapture>? _ref;
+
+    protected override void OnInitialized() => Active.Changed += OnContextChanged;
+
+    private Task OnContextChanged() => InvokeAsync(StateHasChanged);
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        _ref = DotNetObjectReference.Create(this);
+        await JS.InvokeVoidAsync("notes.attachCapture", "notes-capture-input", _ref);
+    }
+
+    private async Task SubmitFromButtonAsync() => await JS.InvokeVoidAsync("notes.submitCapture", "notes-capture-input");
+
+    [JSInvokable]
+    public async Task CaptureAsync(string text)
+    {
+        text = text.Trim();
+        if (text.Length == 0) return;
+        await Actions.CaptureAsync(new CaptureContent(null, text), Active.Id);
+        await InvokeAsync(() => Snackbar.Add($"{Targets.Default.DisplayName} angelegt", Severity.Success, o => o.VisibleStateDuration = 1500));
+    }
+
+    public ValueTask DisposeAsync()
+    {
+        Active.Changed -= OnContextChanged;
+        _ref?.Dispose();
+        return ValueTask.CompletedTask;
+    }
+}

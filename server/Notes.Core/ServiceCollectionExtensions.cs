@@ -30,6 +30,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<EntityActions>();
         services.AddSingleton<ContextService>();
         services.AddSingleton<ISyncHandler, ContextSyncHandler>();
+        services.AddScoped<Web.ActiveContext>();
 
         foreach (var module in modules) module.ConfigureServices(services);
         return services;

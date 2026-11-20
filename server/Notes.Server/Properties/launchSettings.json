@@ -8,7 +8,9 @@
       "applicationUrl": "http://localhost:5080",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development",
-        "ConnectionStrings__Default": "Data Source=notes-dev.db"
+        "ConnectionStrings__Default": "Data Source=notes-dev.db",
+        "Notes__DataProtectionKeysPath": "keys-dev",
+        "CloudflareAccess__Enabled": "false"
       }
     }
   }

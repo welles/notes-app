@@ -50,6 +50,7 @@ public sealed class DummyModule : IModule
 {
     public string Key => "dummy";
     public string DisplayName => "Dummy";
+    public ModuleNavigation Navigation { get; } = new("Dummy", "/dummy", "");
 
     public void ConfigureServices(IServiceCollection services)
     {

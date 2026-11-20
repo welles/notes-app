@@ -1,4 +1,8 @@
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
+using MudBlazor.Services;
+using Notes.Core.Modules;
+using Notes.Server.Components;
 using Microsoft.EntityFrameworkCore;
 using Notes.Core.Data;
 using Notes.Server;
@@ -12,6 +16,12 @@ builder.Services.AddHostedService<TombstonePurgeService>();
 builder.Services.AddCloudflareAccess(builder.Configuration);
 builder.Services.AddNotesOpenApi();
 builder.Services.ConfigureHttpJsonOptions(o => o.SerializerOptions.NumberHandling = System.Text.Json.Serialization.JsonNumberHandling.Strict);
+builder.Services.AddRazorComponents().AddInteractiveServerComponents();
+builder.Services.AddMudServices();
+// Persist keys so a container restart does not break open browser tabs (antiforgery, circuits).
+builder.Services.AddDataProtection()
+    .SetApplicationName("Notes")
+    .PersistKeysToFileSystem(new DirectoryInfo(builder.Configuration["Notes:DataProtectionKeysPath"] ?? "/data/keys"));
 builder.Services.Configure<ForwardedHeadersOptions>(o =>
 {
     // Only reachable through cloudflared in the same Docker network.
@@ -38,9 +48,16 @@ app.MapGet("/healthz", () => Results.Ok("ok")).ExcludeFromDescription();
 app.UseMiddleware<CloudflareAccessMiddleware>();
 app.UseMiddleware<ProtocolMiddleware>();
 
+app.UseAntiforgery();
+app.MapStaticAssets();
+
 app.MapOpenApi("/api/openapi.json");
 app.MapMetaEndpoints();
 app.MapSyncEndpoints();
+app.MapRazorComponents<App>()
+    .AddInteractiveServerRenderMode()
+    .AddAdditionalAssemblies(app.Services.GetRequiredService<ModuleSet>().Modules
+        .Select(m => m.GetType().Assembly).Where(a => a != typeof(Program).Assembly).Distinct().ToArray());
 
 app.Run();
 

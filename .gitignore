@@ -28,3 +28,6 @@ result-*
 .DS_Store
 *.swp
 .vscode/
+server/Notes.Server/keys-dev/
+.claude/
+keys-dev/

@@ -1,0 +1,24 @@
+@inject ModuleSet Modules
+
+<CascadingValue Value="InitialContextId" Name="InitialContextId">
+    <Router AppAssembly="typeof(Program).Assembly" AdditionalAssemblies="_moduleAssemblies">
+        <Found Context="routeData">
+            <RouteView RouteData="routeData" DefaultLayout="typeof(MainLayout)" />
+            <FocusOnNavigate RouteData="routeData" Selector="h1" />
+        </Found>
+        <NotFound>
+            <LayoutView Layout="typeof(MainLayout)">
+                <MudText>Seite nicht gefunden.</MudText>
+            </LayoutView>
+        </NotFound>
+    </Router>
+</CascadingValue>
+
+@code {
+    [Parameter] public string? InitialContextId { get; set; }
+
+    private System.Reflection.Assembly[] _moduleAssemblies = [];
+
+    protected override void OnInitialized() =>
+        _moduleAssemblies = Modules.Modules.Select(m => m.GetType().Assembly).Where(a => a != typeof(Program).Assembly).Distinct().ToArray();
+}
