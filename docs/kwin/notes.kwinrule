@@ -1,0 +1,26 @@
+[Notes-Post-its]
+Description=Notes: Post-its auf dem Desktop
+wmclass=notes-sticky
+wmclassmatch=1
+types=1
+skiptaskbar=true
+skiptaskbarrule=2
+skippager=true
+skippagerrule=2
+skipswitcher=true
+skipswitcherrule=2
+noborder=true
+noborderrule=2
+desktops=\\0
+desktopsrule=2
+
+[Notes-Schnellerfassung]
+Description=Notes: Schnellerfassung bekommt sofort den Fokus
+title=Notes – Schnell notieren
+titlematch=1
+wmclass=notes
+wmclassmatch=1
+fsplevel=0
+fsplevelrule=2
+above=true
+aboverule=2

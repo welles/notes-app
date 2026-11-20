@@ -25,6 +25,7 @@ include(
     ":core:ui",
     ":feature:stickies",
     ":app",
-    ":androidApp",
     ":desktopApp",
 )
+// The Nix package builds the desktop app only (no Android SDK): -Pnotes.desktopOnly=true
+if (providers.gradleProperty("notes.desktopOnly").orNull != "true") include(":androidApp")

@@ -22,6 +22,6 @@ room {
 }
 
 dependencies {
-    add("kspAndroid", libs.room.compiler)
+    if (providers.gradleProperty("notes.desktopOnly").orNull != "true") add("kspAndroid", libs.room.compiler)
     add("kspDesktop", libs.room.compiler)
 }

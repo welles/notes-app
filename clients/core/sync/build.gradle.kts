@@ -11,7 +11,7 @@ kotlin {
             implementation(libs.ktor.client.content.negotiation)
             implementation(libs.ktor.serialization.json)
         }
-        androidMain.dependencies { implementation(libs.ktor.client.okhttp) }
+        findByName("androidMain")?.dependencies { implementation(libs.ktor.client.okhttp) }
         getByName("desktopMain").dependencies { implementation(libs.ktor.client.okhttp) }
         commonTest.dependencies { implementation(libs.ktor.client.mock) }
     }

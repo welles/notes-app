@@ -94,6 +94,7 @@ fun StickiesScreen(navigator: Navigator) {
 
     var moving by remember { mutableStateOf<Sticky?>(null) }
     var converting by remember { mutableStateOf<Pair<Sticky, CaptureTarget>?>(null) }
+    val desktop: dev.welles.notes.feature.stickies.StickyDesktopPlacement? = org.koin.compose.getKoin().getOrNull()
     val convertTargets = if (vm.targets.conversionAvailable) vm.targets.all.filter { it.entityType != STICKY_TYPE } else emptyList()
 
     fun delete(s: Sticky) {
@@ -123,8 +124,7 @@ fun StickiesScreen(navigator: Navigator) {
     if (items.isEmpty()) {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(32.dp), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
             Icon(Icons.Outlined.StickyNote2, null, Modifier.size(48.dp).alpha(.6f))
-            Text("Noch keine Post-its in „${active.name}“.", Modifier.padding(top = 12.dp))
-            Text("Tippe auf + um etwas zu notieren.", style = MaterialTheme.typography.bodySmall)
+            Text("Keine Post-its", Modifier.padding(top = 12.dp))
         }
     } else LazyVerticalGrid(
         columns = GridCells.Adaptive(160.dp),
@@ -160,6 +160,7 @@ fun StickiesScreen(navigator: Navigator) {
                         onMove = { moving = sticky },
                         onConvert = { converting = sticky to it },
                         onDelete = { delete(sticky) },
+                        onPlaceOnDesktop = desktop?.let { d -> { d.place(sticky.id) } },
                     )
                 }
             }
@@ -196,6 +197,7 @@ private fun StickyCard(
     onMove: () -> Unit,
     onConvert: (CaptureTarget) -> Unit,
     onDelete: () -> Unit,
+    onPlaceOnDesktop: (() -> Unit)? = null,
 ) {
     var menu by remember { mutableStateOf(false) }
     var colors by remember { mutableStateOf(false) }
@@ -217,6 +219,10 @@ private fun StickyCard(
                     IconButton(onClick = { menu = true }, modifier = Modifier.size(36.dp)) { Icon(Icons.Filled.MoreVert, "Mehr", Modifier.size(18.dp)) }
                     DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                         DropdownMenuItem(text = { Text("Farbe …") }, leadingIcon = { Icon(Icons.Filled.Palette, null) }, onClick = { menu = false; colors = true })
+                        if (onPlaceOnDesktop != null) DropdownMenuItem(
+                            text = { Text("Auf den Desktop legen") }, leadingIcon = { Icon(Icons.Filled.Transform, null) },
+                            onClick = { menu = false; onPlaceOnDesktop() },
+                        )
                         DropdownMenuItem(text = { Text("In Kontext verschieben …") }, leadingIcon = { Icon(Icons.Filled.SwapHoriz, null) }, onClick = { menu = false; onMove() })
                         for (t in convertTargets) DropdownMenuItem(
                             text = { Text("Umwandeln in ${t.displayName} …") }, leadingIcon = { Icon(Icons.Filled.Transform, null) }, onClick = { menu = false; onConvert(t) },

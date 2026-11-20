@@ -20,7 +20,7 @@
       # Native libraries Compose Desktop (Skia/AWT) needs at runtime on Linux.
       desktopRuntimeLibs = pkgs: with pkgs; [
         libGL fontconfig freetype
-        xorg.libX11 xorg.libXext xorg.libXrender xorg.libXtst xorg.libXi xorg.libXrandr xorg.libXcursor
+        libx11 libxext libxrender libxtst libxi libxrandr libxcursor
       ];
 
       androidSdkFor = pkgs: (pkgs.androidenv.composeAndroidPackages {
@@ -32,6 +32,27 @@
       }).androidsdk;
     in
     {
+      # Desktop client (Linux), built from source; Gradle dependencies pinned in clients/deps.json.
+      # Update the lock after dependency changes: nix build .#notes-desktop.mitmCache.updateScript && ./result
+      packages.x86_64-linux =
+        let
+          pkgs = (forAllSystems (p: p)).x86_64-linux;
+          notes-desktop = pkgs.callPackage ./nix/notes-desktop.nix {
+            src = ./.;
+            version = "0.1.0";
+            runtimeLibs = desktopRuntimeLibs pkgs;
+          };
+        in
+        {
+          inherit notes-desktop;
+          default = notes-desktop;
+        };
+
+      apps.x86_64-linux.default = {
+        type = "app";
+        program = "${self.packages.x86_64-linux.notes-desktop}/bin/notes";
+      };
+
       devShells = forAllSystems (pkgs:
         let
           jdk = pkgs.jdk21;

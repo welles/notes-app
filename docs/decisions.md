@@ -101,3 +101,20 @@ Kurz und knapp, neueste unten.
 - **Signing nur über Umgebungsvariablen** (`NOTES_KEYSTORE_FILE`, `…_PASSWORD`, `NOTES_KEY_ALIAS`, `NOTES_KEY_PASSWORD`); ohne sie bleibt der Release-Build unsigniert.
 - **APK-Name `notes-<version>.apk`** für Obtainiums Filter; Release-Titel enthält „Android“, damit Server-Tags nicht stören.
 - **Erprobt**: R8-Release 0.9.0 installiert, Daten angelegt, 0.9.1 als Update drüber installiert → Daten erhalten; Sync unter R8 funktioniert.
+
+## Schritt 9 – Desktop
+
+- **Spike-Ergebnis** in `docs/desktop-spike.md`: Unter Cinnamon (Muffin, X11) funktionieren Position/Größe, „immer oben“, „unten“, keine Taskleiste und alle Arbeitsflächen. KDE/Wayland konnte hier nicht getestet werden; dafür gibt es die KWin-Regel `docs/kwin/notes.kwinrule`. Da die Spike-Ergebnisse positiv waren, ist 9b im vollen Umfang umgesetzt.
+- **Post-it-Fenster sind rohe `ComposeWindow`s** (nicht der `Window`-Composable), damit die EWMH-Hinweise per Xlib **vor** dem Mappen gesetzt werden können; die Ebene wird nach dem Mappen zusätzlich per Client-Message gesetzt (Muffin ignoriert `BELOW` aus der Property).
+- **Hauptfenster bleibt in der Komposition** und wird beim Schließen nur versteckt – so läuft Notes im Hintergrund weiter. Beenden: Tray, `notes --quit`.
+- **Fensterzustand pro Kontext** in `core_local_setting` (`desktop.stickyWindows.<contextId>`); beim Kontextwechsel werden die Fenster geschlossen bzw. wiederhergestellt.
+- **Single-Instance** über einen Unix-Domain-Socket (Java 16+, keine Zusatzbibliothek), Argumente Base64-kodiert.
+- **`--capture-text` ohne laufende Instanz** schreibt direkt in die Datenbank, versucht einen kurzen Sync (max. 15 s) und beendet sich.
+- **Tray** nur, wenn AWT einen unterstützt (XEmbed, z. B. Cinnamon). KDE Plasma 6 kennt nur StatusNotifierItem → dort kein Tray-Icon; Notes ist dann über den Starter (öffnet das Hauptfenster der laufenden Instanz) bzw. `notes --quit` bedienbar.
+- **WM_CLASS** des Hauptfensters per Reflection auf `notes` gesetzt (`--add-opens java.desktop/sun.awt.X11`), passend zu `StartupWMClass` der `.desktop`-Datei.
+- **Nix-Paket aus dem Quellcode**: `-Pnotes.desktopOnly=true` baut ohne Android-Module/-SDK; `nixDistribution` sammelt alle Laufzeit-JARs (gleichnamige JARs verschiedener Gruppen werden mit Gruppen-Präfix abgelegt); Start über das JDK aus nixpkgs mit `makeWrapper`. Der Abhängigkeits-Lock wird mit dem echten Build aufgezeichnet (`gradleUpdateTask`), weil KSP seinen Prozessor erst zur Ausführungszeit auflöst; ohne Parallelität, da Maven Central bei vielen parallelen Downloads über den Proxy abbricht.
+- **Nicht getestet**: KDE Plasma 6 / KWin; das Tray-Icon auf echtem Cinnamon (im Test-X-Server ohne Panel nicht prüfbar).
+
+## UI-Texte
+
+- **Keine Erklärsätze an UI-Elementen** (Wunsch des Nutzers): nur knappe Labels, Platzhalter, Titel und echte Status-/Fehlermeldungen. Wo etwas ohne Erklärung nicht verständlich ist, wird das Design verbessert statt ein Hinweis ergänzt.

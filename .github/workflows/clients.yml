@@ -4,9 +4,9 @@ on:
   push:
     branches: [main]
     tags: ["clients-v*"]
-    paths: ["clients/**", "api/**", ".github/workflows/clients.yml"]
+    paths: ["clients/**", "api/**", "flake.nix", "flake.lock", "nix/**", ".github/workflows/clients.yml"]
   pull_request:
-    paths: ["clients/**", "api/**", ".github/workflows/clients.yml"]
+    paths: ["clients/**", "api/**", "flake.nix", "flake.lock", "nix/**", ".github/workflows/clients.yml"]
   workflow_dispatch:
 
 permissions:
@@ -77,3 +77,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh release create "$GITHUB_REF_NAME" androidApp/build/outputs/apk/release/notes-*.apk --title "Notes ${{ steps.version.outputs.name }} (Android)" --generate-notes
+
+  nix-desktop:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: cachix/install-nix-action@v31
+      - name: Build desktop package from source
+        run: nix build .#notes-desktop -L

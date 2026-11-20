@@ -110,6 +110,71 @@ Sync läuft: Android beim Start/Vordergrund, ca. 2 s nach lokalen Änderungen, p
 
 Lokal gegen einen Dev-Server testen: Debug-Builds erlauben Klartext-HTTP zu `10.0.2.2` (Emulator) und `localhost` (`adb reverse tcp:5080 tcp:5080`).
 
+## Desktop (NixOS)
+
+### Installieren
+
+Flake-Input in der NixOS-/Home-Manager-Konfiguration:
+
+```nix
+inputs.notes.url = "github:welles/notes-app";
+```
+
+NixOS:
+
+```nix
+environment.systemPackages = [ inputs.notes.packages.x86_64-linux.default ];
+```
+
+Home-Manager, inklusive Autostart im Hintergrund (Post-its erscheinen nach dem Login, Hauptfenster bleibt zu):
+
+```nix
+home.packages = [ inputs.notes.packages.x86_64-linux.default ];
+xdg.configFile."autostart/notes.desktop".text = ''
+  [Desktop Entry]
+  Type=Application
+  Name=Notes
+  Exec=notes --background
+'';
+```
+
+Ausprobieren ohne Installation:
+
+```bash
+nix run github:welles/notes-app
+```
+
+Gebaut wird aus dem Quellcode (Gradle-Abhängigkeiten gepinnt in `nix/notes-desktop-deps.json`). Nach Änderungen an Abhängigkeiten:
+
+```bash
+nix build .#notes-desktop.mitmCache.updateScript -o update-deps && ./update-deps
+```
+
+Notes läuft unter Wayland über XWayland (AWT/X11). Zugangsdaten landen über `secret-tool` im Secret Service.
+
+### Befehle
+
+```
+notes                      Hauptfenster (startet Notes, falls nötig)
+notes --capture            Schnellerfassung
+notes --capture-text TEXT  Post-it ohne Fenster
+notes --background         ohne Hauptfenster starten
+notes --quit               beenden
+```
+
+Notes läuft nur einmal: Ein zweiter Aufruf reicht seine Argumente über `$XDG_RUNTIME_DIR/notes.sock` an die laufende Instanz weiter. Schließen des Hauptfensters beendet Notes nicht.
+
+### Tastenkürzel für die Schnellerfassung
+
+- **Cinnamon:** Systemeinstellungen → Tastatur → Tastenkürzel → Benutzerdefinierte Tastenkürzel → *Benutzerdefiniertes Tastenkürzel hinzufügen*: Name „Notes“, Befehl `notes --capture`, Kürzel z. B. `Super+N`.
+- **KDE Plasma:** Systemeinstellungen → Tastatur → Kurzbefehle → *Neu hinzufügen* → *Befehl oder Skript*: `notes --capture`, Kürzel zuweisen.
+
+### Post-its auf dem Desktop
+
+Im Hauptfenster am Post-it ⋮ → *Auf den Desktop legen*. Beim Überfahren erscheint oben eine Leiste: Farbe, Ebene (normal → immer oben → unten), im Hauptfenster öffnen, vom Desktop nehmen. Fenster lassen sich an der oberen Kante verschieben und an der rechten unteren Ecke vergrößern. Position, Größe und Ebene werden pro Kontext gerätelokal gespeichert.
+
+Fensterklasse der Post-its: `notes-sticky`. Für KDE Plasma liegt eine importierbare KWin-Regel bei: `docs/kwin/notes.kwinrule` (Systemeinstellungen → Fensterverwaltung → Fensterregeln → *Importieren*). Ergebnisse des Fenster-Spikes: `docs/desktop-spike.md`.
+
 ## Android-Release & Updates (Obtainium)
 
 ### Keystore einmalig erzeugen und sichern

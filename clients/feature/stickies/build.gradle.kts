@@ -9,12 +9,14 @@ kotlin {
             implementation(projects.core.ui)
             implementation(libs.reorderable)
         }
-        androidMain.dependencies {
+        findByName("androidMain")?.dependencies {
             implementation(libs.androidx.glance)
             implementation(libs.androidx.activity.compose)
             implementation(libs.koin.android)
         }
     }
     // Widgets need Android resources (appwidget-provider XML).
-    android { androidResources { enable = true } }
+    if (providers.gradleProperty("notes.desktopOnly").orNull != "true") {
+        extensions.configure<com.android.build.api.dsl.KotlinMultiplatformAndroidLibraryTarget>("android") { androidResources { enable = true } }
+    }
 }
