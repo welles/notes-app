@@ -14,8 +14,10 @@ public static class NotesComposition
 
     public static IModule[] Modules() => [new StickiesModule()];
 
-    public static IServiceCollection AddNotes(this IServiceCollection services, string connectionString) =>
-        services.AddNotesCore(o => ConfigureDb(o, connectionString), Modules());
+    public static IServiceCollection AddNotes(this IServiceCollection services) =>
+        services.AddNotesCore(
+            (sp, o) => ConfigureDb(o, sp.GetRequiredService<IConfiguration>().GetConnectionString("Default") ?? DefaultConnectionString),
+            Modules());
 
     public static void ConfigureDb(DbContextOptionsBuilder o, string connectionString) =>
         o.UseSqlite(connectionString, s => s.MigrationsAssembly(typeof(NotesComposition).Assembly.GetName().Name));
