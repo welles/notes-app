@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="Notes.Core/Notes.Core.csproj" />
+  <Project Path="Notes.Modules.Stickies/Notes.Modules.Stickies.csproj" />
+  <Project Path="Notes.Server.Tests/Notes.Server.Tests.csproj" />
+  <Project Path="Notes.Server/Notes.Server.csproj" />
+</Solution>

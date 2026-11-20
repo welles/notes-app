@@ -1,0 +1,30 @@
+# .NET
+bin/
+obj/
+*.user
+.vs/
+TestResults/
+*.db
+*.db-shm
+*.db-wal
+
+# Gradle / Kotlin / Android
+.gradle/
+build/
+.kotlin/
+local.properties
+*.iml
+.idea/
+captures/
+*.keystore
+*.jks
+
+# Nix
+result
+result-*
+.direnv/
+
+# OS / editors
+.DS_Store
+*.swp
+.vscode/
