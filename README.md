@@ -7,7 +7,7 @@ v1 enthält das Modul **Post-its** plus Core (Kontexte, generischer Sync, Schnel
 | Teil | Technik | Status |
 |---|---|---|
 | Server + Web | .NET 10, ASP.NET Core, Blazor, EF Core + SQLite | Core & Post-its (Service-Schicht) |
-| Android + Desktop | Kotlin Multiplatform, Compose Multiplatform | folgt (Schritt 5 ff.) |
+| Android + Desktop | Kotlin Multiplatform, Compose Multiplatform, Room, Ktor, Koin | `clients/` |
 
 ## Struktur
 
@@ -17,6 +17,14 @@ server/
   Notes.Modules.Stickies/  Modul Post-its (Entität, Service, Sync-Handler, Capture-Ziel)
   Notes.Server/            Host, Komposition der Module, EF-Migrationen
   Notes.Server.Tests/      xUnit v3
+clients/                   Gradle-KMP-Projekt (Android + Desktop/JVM)
+  core/model/              DTOs (API-Vertrag), IDs, Zeit
+  core/data/               Room-Entities/DAOs für Outbox, Sync-Status, lokale Einstellungen, Kontexte; LocalStore, Capture, Aktionen
+  core/sync/               Sync-Engine, API-Client, Scheduler
+  core/ui/                 Theme, Shell (Navigation, Kontextwechsel, Schnellerfassung), Einstellungen
+  feature/stickies/        Modul Post-its (Room, Repository, ViewModels, Screens; androidMain: Widgets)
+  app/                     gemeinsame Komposition: Room-Datenbank (alle Entities), Koin-Module, Root-Composable
+  androidApp/, desktopApp/ Einstiegspunkte
 docs/decisions.md          Entscheidungslog
 flake.nix                  Dev-Shell (später auch Desktop-Paket)
 ```
@@ -53,6 +61,35 @@ Ein Test (`MigrationTests`) schlägt fehl, wenn das Modell geändert wurde, ohne
 
 Lokal ist die Cloudflare-Prüfung über das Launch-Profil abgeschaltet (`CloudflareAccess__Enabled=false`, Warnung im Log).
 Web-UI: <http://localhost:5080>, OpenAPI: <http://localhost:5080/api/openapi.json>.
+
+## Clients (Android + Desktop)
+
+Dev-Shell mit Android-SDK (einmalig ~1 GB):
+
+```bash
+nix develop .#android
+cd clients
+```
+
+Desktop starten (Daten unter `$XDG_DATA_HOME/notes/`):
+
+```bash
+./gradlew :desktopApp:run
+```
+
+Android-Debug-APK bauen und installieren:
+
+```bash
+./gradlew :androidApp:assembleDebug && adb install -r androidApp/build/outputs/apk/debug/androidApp-debug.apk
+```
+
+Tests (gemeinsamer Code läuft auf JVM; Room in-memory):
+
+```bash
+./gradlew :core:model:desktopTest :app:desktopTest
+```
+
+Room-Schemas liegen committed unter `clients/app/schemas/` (Grundlage für Migrationstests).
 
 ## Konfiguration (Server)
 

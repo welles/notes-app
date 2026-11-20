@@ -53,3 +53,20 @@ Kurz und knapp, neueste unten.
 - **Image-Tags**: `server-vX.Y.Z` → `X.Y.Z` + `latest`. Bei normalen Pushes wird nur gebaut (kein Push), damit das Dockerfile nicht unbemerkt kaputtgeht.
 - **Kompatibilitäts-Check** als Skript (`scripts/check-api-compat.sh`), lokal und in CI gleich: `oasdiff breaking --fail-on ERR` gegen den letzten `server-v*`-Tag (oasdiff via Docker-Image), plus „Fixtures nur hinzufügen“.
 - **Owner im Image-Namen** kommt in CI aus `github.repository_owner`; README/Compose nennen `ghcr.io/welles/notes`.
+
+## Schritt 5 – Clients (KMP)
+
+- **Versionen (Nov. 2026):** Kotlin 2.4, AGP 9.5, Compose Multiplatform 1.12, Room 2.8, Ktor 3.6, Koin 4.2, Gradle 9.9. Gemeinsame Module nutzen das AGP-9-Plugin `com.android.kotlin.multiplatform.library`; `androidApp` ist ein eigenes Modul (AGP 9 erlaubt keine App + KMP in einem Modul).
+- **compileSdk 37** (Compose 1.12 verlangt es), minSdk 29, targetSdk 37.
+- **Zusätzliches Modul `:app`** (gemeinsame Komposition): Die Room-`@Database` muss alle Entities aller Module kennen und gehört deshalb in ein Modul, das alle Features sieht. Dort liegen auch Koin-Komposition und Root-Composable; `androidApp`/`desktopApp` sind nur noch Einstiegspunkte.
+- **DAOs der Features** bekommen die Module per Koin aus der Datenbank; Features kennen `NotesDatabase` nicht.
+- **Jede lokale Änderung ist ein JSON-Patch** auf das Roh-JSON (`rawData`) der Entität (`LocalStore`). Spalten in Room sind nur eine Projektion fürs Abfragen/Anzeigen. So überleben Felder neuerer Versionen jede Bearbeitung, und „In Kontext verschieben“ funktioniert generisch für jeden Typ.
+- **Outbox** pro Entität eine Zeile (zusammengefasst), `baseVersion` der ersten ungesyncten Änderung bleibt erhalten; `batchId` hält zusammengehörige Änderungen in einem Push.
+- **Standardkontext lokal** mit fester UUID und Version 0 angelegt, aber nicht in die Outbox geschrieben; der Pull überschreibt ihn.
+- **Aktiver Kontext** in der lokalen Tabelle `core_local_setting` (nie synchronisiert). Ist er gelöscht, Fallback auf den Standardkontext plus Hinweis.
+- **Eigene Mini-Navigation** (Back-Stack aus Routen-Strings + `BackHandler`) statt navigation-compose – Module registrieren ihre Screens über `FeatureRoutes`.
+- **Neuere lokale DB** wird vor dem Öffnen per `PRAGMA user_version` erkannt; die App zeigt dann einen Hinweis statt abzustürzen oder Daten zu verwerfen.
+- **Share-Target** legt das Post-it direkt an (Toast), ohne die App zu öffnen; `EXTRA_SUBJECT` wird zum Titel.
+- **Sortieren auf den Clients** per Long-Press-Drag innerhalb der Abschnitte „Angepinnt“/„Weitere“ (`sh.calvin.reorderable`); Anpinnen über den Pin-Button.
+- **Desktop-Dark-Mode**: Compose erkennt ihn unter Linux nicht selbst; Notes liest `GTK_THEME`, `gsettings` (GNOME/Cinnamon) bzw. `kdeglobals` (KDE). `NOTES_DARK=1` erzwingt ihn.
+- **Backup (Android)**: Datenbank darf ins Backup, Zugangsdaten nicht (Ausschluss in `backup_rules.xml`/`data_extraction_rules.xml`).

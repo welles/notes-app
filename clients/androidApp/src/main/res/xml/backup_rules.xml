@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Data (database) may be backed up; credentials never (encrypted file, key in the Android Keystore). -->
+<full-backup-content>
+    <exclude domain="file" path="datastore/credentials.preferences_pb" />
+</full-backup-content>
