@@ -297,10 +297,12 @@ nix develop .#android --command scripts/compat-e2e.sh current current
 
 Server, Android und Desktop haben dieselbe Version: eine fortlaufende Zahl N aus der Datei `VERSION`, kein Semantic Versioning. Ein Release ist der Tag `vN` und baut alles aus demselben Commit: Image `ghcr.io/welles/notes:N`, APK `notes-N.apk` (`versionCode` N) und die Desktop-Version der Flake; danach zeigt der Branch `release` auf diesen Commit.
 
-Installiert und deployt wird nur, was ein Release ist: Der Server läuft mit einem Image-Tag N (andere Builds werden nicht gepusht), Obtainium sieht nur GitHub Releases, und die Flake wird über den Branch `release` eingebunden. Die Nummer steigt nur durch `scripts/release.sh`. Ob Server und Clients zusammenpassen, entscheiden Protokoll und Fähigkeiten (`/api/meta`), nicht die Nummer.
+Installiert und deployt wird nur, was ein Release ist: Der Server läuft mit einem Image-Tag N (andere Builds werden nicht gepusht), Obtainium sieht nur GitHub Releases, und die Flake wird über den Branch `release` eingebunden. Die Nummer steigt nur durch den Release-Workflow. Ob Server und Clients zusammenpassen, entscheiden Protokoll und Fähigkeiten (`/api/meta`), nicht die Nummer.
+
+Ein Release startet man in GitHub: *Actions → release → Run workflow* (auf `main`), oder:
 
 ```bash
-scripts/release.sh
+gh workflow run release.yml -R welles/notes-app
 ```
 
-Das Skript taggt die Nummer aus `VERSION` bzw. erhöht sie vorher um eins, falls sie schon veröffentlicht ist, und pusht `main` und den Tag. Die CI bricht ab, wenn Tag und `VERSION` nicht übereinstimmen. Wo ein Werkzeug drei Stellen verlangt (.NET-Assembly-Version, jpackage), wird daraus `N.0.0`.
+Der Workflow nimmt die Nummer aus `VERSION` bzw. eins mehr, falls sie schon veröffentlicht ist. Erst wenn alle Tests und Builds grün sind, committet er `VERSION`, taggt `vN`, pusht das Image, legt das GitHub Release mit der APK an und schiebt den Branch `release` vor. Schlägt etwas fehl, entsteht kein Release. Wo ein Werkzeug drei Stellen verlangt (.NET-Assembly-Version, jpackage), wird daraus `N.0.0`.

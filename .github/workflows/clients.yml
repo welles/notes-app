@@ -3,11 +3,16 @@ name: clients
 on:
   push:
     branches: [main]
-    tags: ["v[0-9]*"]
     paths: ["VERSION", "clients/**", "api/**", "flake.nix", "flake.lock", "nix/**", ".github/workflows/clients.yml"]
   pull_request:
     paths: ["VERSION", "clients/**", "api/**", "flake.nix", "flake.lock", "nix/**", ".github/workflows/clients.yml"]
   workflow_dispatch:
+  # From release.yml: tests the commit to be released and builds the signed APK of release `version`
+  workflow_call:
+    inputs:
+      version:
+        type: string
+        required: true
 
 permissions:
   contents: read
@@ -35,11 +40,9 @@ jobs:
         run: git diff --exit-code -- app/schemas || (echo "::error::Room schema changed – commit clients/app/schemas." && exit 1)
 
   release-android:
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: inputs.version != ''
     needs: [test]
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     defaults:
       run:
         working-directory: clients
@@ -52,13 +55,6 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
       - name: Android SDK components
         run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-37.0" "build-tools;36.0.0" "build-tools;37.0.0" > /dev/null
-      - name: Version
-        id: version
-        run: |
-          # versionName and versionCode are N from VERSION (tag vN)
-          v=$(cat ../VERSION)
-          [[ "$GITHUB_REF_NAME" == "v$v" ]] || { echo "::error::tag $GITHUB_REF_NAME does not match VERSION ($v)"; exit 1; }
-          echo "name=$v" >> "$GITHUB_OUTPUT"
       - name: Keystore from secret
         env:
           KEYSTORE_BASE64: ${{ secrets.NOTES_KEYSTORE_BASE64 }}
@@ -69,17 +65,15 @@ jobs:
           NOTES_KEYSTORE_PASSWORD: ${{ secrets.NOTES_KEYSTORE_PASSWORD }}
           NOTES_KEY_ALIAS: ${{ secrets.NOTES_KEY_ALIAS }}
           NOTES_KEY_PASSWORD: ${{ secrets.NOTES_KEY_PASSWORD }}
-        run: ./gradlew :androidApp:assembleRelease
+          VERSION: ${{ inputs.version }}
+        run: ./gradlew :androidApp:assembleRelease "-Pnotes.version=$VERSION"
       - name: Verify signature
         run: '"$ANDROID_HOME/build-tools/37.0.0/apksigner" verify --print-certs androidApp/build/outputs/apk/release/notes-*.apk'
-      - name: GitHub Release
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" androidApp/build/outputs/apk/release/notes-*.apk --title "Notes ${{ steps.version.outputs.name }}" --generate-notes
-      # The desktop flake is consumed from this branch, so `nix flake update` only ever gets releases.
-      # A plain push: it fails instead of moving the branch backwards.
-      - name: Move branch release to this release
-        run: git push origin "$GITHUB_SHA:refs/heads/release"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: apk
+          path: clients/androidApp/build/outputs/apk/release/notes-*.apk
+          if-no-files-found: error
 
   nix-desktop:
     runs-on: ubuntu-latest

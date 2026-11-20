@@ -1,0 +1,101 @@
+name: release
+
+# Releases server, Android and desktop together as version N (button "Run workflow").
+# N is the number in VERSION, or one more if vN is already released. Only after all tests and
+# builds pass: VERSION is committed (if raised), main is tagged vN, image N is pushed, the
+# GitHub release gets notes-N.apk and branch release (the desktop flake's source) moves to vN.
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  prepare:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      sha: ${{ steps.version.outputs.sha }}
+    steps:
+      # The commit the workflow was started on, which server.yml and clients.yml test as well
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Next version
+        id: version
+        run: |
+          n=$(cat VERSION)
+          if git rev-parse -q --verify "refs/tags/v$n" > /dev/null; then n=$((n + 1)); fi
+          echo "Releasing v$n from $(git rev-parse --short HEAD)"
+          echo "version=$n" >> "$GITHUB_OUTPUT"
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+  server:
+    needs: [prepare]
+    uses: ./.github/workflows/server.yml
+
+  clients:
+    needs: [prepare]
+    uses: ./.github/workflows/clients.yml
+    with:
+      version: ${{ needs.prepare.outputs.version }}
+    secrets: inherit
+
+  publish:
+    needs: [prepare, server, clients]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+    env:
+      VERSION: ${{ needs.prepare.outputs.version }}
+      SHA: ${{ needs.prepare.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      # A plain push of the tested commit: fails instead of releasing anything untested
+      - name: Commit VERSION and tag
+        run: |
+          [[ "$(git rev-parse HEAD)" == "$SHA" ]] || { echo "::error::main moved during the release; run it again"; exit 1; }
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if [[ "$(cat VERSION)" != "$VERSION" ]]; then
+            echo "$VERSION" > VERSION
+            git commit -m "chore(release): v$VERSION" -- VERSION
+          fi
+          git tag -a "v$VERSION" -m "Notes $VERSION"
+          git push --atomic origin HEAD:refs/heads/main "refs/tags/v$VERSION"
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/notes:${{ env.VERSION }}
+            ghcr.io/${{ github.repository_owner }}/notes:latest
+          build-args: VERSION=${{ env.VERSION }}
+          cache-from: type=gha
+      - uses: actions/download-artifact@v4
+        with:
+          name: apk
+          path: apk
+      - name: GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "v$VERSION" apk/notes-*.apk --title "Notes $VERSION" --generate-notes --verify-tag
+      # The desktop flake is consumed from this branch, so `nix flake update` only ever gets releases.
+      # A plain push: it fails instead of moving the branch backwards.
+      - name: Move branch release
+        run: git push origin "v$VERSION^{commit}:refs/heads/release"

@@ -141,3 +141,4 @@ Kurz und knapp, neueste unten.
 - **Eine Version für alles, fortlaufend gezählt**: Server, Android und Desktop aus demselben Commit tragen dieselbe Nummer N (`VERSION`, Tag `vN`), statt getrennter `server-v*`/`clients-v*`-Tags mit Semantic Versioning (Abweichung von der Spec). Kompatibilität hängt an Protokoll und Fähigkeiten, nicht an der Nummer; jedes Release enthält beide Seiten, auch wenn sich nur eine geändert hat.
 - **Wo drei Stellen nötig sind**: .NET-Assembly-Version und jpackage bekommen `N.0.0`; Android nimmt N direkt als `versionCode`.
 - **Nur Releases werden installiert**: Image-Tags nur bei `vN`, APKs nur als GitHub Release, die Desktop-Flake über den Branch `release`, den nur die Release-Action vorschiebt.
+- **Release per Workflow** (`release.yml`, manuell gestartet) statt Tag-Push oder lokalem Skript: Tests, signierte APK und Image-Build laufen vorher; Tag, Image-Push, GitHub Release und Branch `release` entstehen erst, wenn alles grün ist.
