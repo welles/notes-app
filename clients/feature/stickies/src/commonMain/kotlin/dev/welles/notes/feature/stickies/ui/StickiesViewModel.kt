@@ -47,12 +47,12 @@ class StickyEditorViewModel(private val repository: StickyRepository, private va
     suspend fun load(id: String): Sticky? = repository.get(id)
 
     /** Saves on leaving the editor. New post-its are only created if something was entered. */
-    fun save(id: String?, title: String, content: String, color: String, pinned: Boolean, onSaved: (String?) -> Unit = {}) = viewModelScope.launch {
+    fun save(id: String?, text: String, color: String, pinned: Boolean, onSaved: (String?) -> Unit = {}) = viewModelScope.launch {
         if (id == null) {
-            if (title.isBlank() && content.isBlank()) return@launch onSaved(null)
-            onSaved(repository.create(contexts.activeIdOrDefault(), title, content, color, pinned))
+            if (text.isBlank()) return@launch onSaved(null)
+            onSaved(repository.create(contexts.activeIdOrDefault(), text, color, pinned))
         } else {
-            repository.update(id, title, content, color, pinned)
+            repository.update(id, text, color, pinned)
             onSaved(id)
         }
     }

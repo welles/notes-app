@@ -48,8 +48,21 @@ public sealed class StickySyncHandler : SyncHandler<Sticky>
     protected override bool NeedsConflictCopy(Sticky winner, Sticky loser) =>
         (winner.Title ?? "") != (loser.Title ?? "") || winner.Content != loser.Content;
 
-    protected override void PrepareConflictCopy(Sticky copy) =>
-        copy.Title = string.IsNullOrEmpty(copy.Title) ? "Konflikt" : ConflictPrefix + copy.Title;
+    /// <summary>
+    /// Legacy post-its with a title keep it there (older clients show it), prefixed; all others get the mark in
+    /// their first heading, so it is visible on every client version.
+    /// </summary>
+    protected override void PrepareConflictCopy(Sticky copy)
+    {
+        if (!string.IsNullOrEmpty(copy.Title)) copy.Title = ConflictPrefix + copy.Title;
+        else copy.Content = StickyText.MarkConflict(copy.Content);
+    }
 
-    protected override CaptureContent Export(Sticky e) => new(e.Title, e.Content);
+    /// <summary>A leading heading becomes the title for modules that have one.</summary>
+    protected override CaptureContent Export(Sticky e)
+    {
+        if (!string.IsNullOrEmpty(e.Title)) return new(e.Title, e.Content);
+        var (title, text) = StickyText.SplitHeading(e.Content);
+        return new(title, text);
+    }
 }

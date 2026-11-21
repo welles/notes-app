@@ -14,8 +14,8 @@ public sealed class StickyCaptureTarget : ICaptureTarget
 
     public async Task<JsonObject> CreateDataAsync(NotesDbContext db, CaptureContent content, Guid contextId, CancellationToken ct) => new()
     {
-        ["title"] = string.IsNullOrWhiteSpace(content.Title) ? null : content.Title.Trim(),
-        ["content"] = content.Text,
+        ["title"] = null,
+        ["content"] = StickyText.Combine(content.Title, content.Text),
         ["color"] = StickyColors.Default,
         ["pinned"] = false,
         ["position"] = await StickyService.TopPositionAsync(db, contextId, ct),

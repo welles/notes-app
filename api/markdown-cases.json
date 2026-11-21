@@ -1,0 +1,24 @@
+{
+  "description": "Basic Markdown of notes: server (Notes.Core/Web/Markdown.cs) and clients (core/model Markdown.kt) must turn every input into the same plain text. Unlike api/fixtures, cases may change with the subset.",
+  "cases": [
+    { "markdown": "", "plain": "" },
+    { "markdown": "Milch\nBrot\n  eingerückt", "plain": "Milch\nBrot\n  eingerückt" },
+    { "markdown": "# Einkauf\n\nMilch", "plain": "Einkauf\n\nMilch" },
+    { "markdown": "## Zwei\n###### Sechs", "plain": "Zwei\nSechs" },
+    { "markdown": "#hashtag", "plain": "#hashtag" },
+    { "markdown": "- eins\n* zwei\n  + drei", "plain": "• eins\n• zwei\n  • drei" },
+    { "markdown": "1. erstens\n2) zweitens", "plain": "1. erstens\n2) zweitens" },
+    { "markdown": "- [ ] offen\n- [x] erledigt", "plain": "☐ offen\n☑ erledigt" },
+    { "markdown": "oben\n---\nunten", "plain": "oben\n—\nunten" },
+    { "markdown": "**fett** und *kursiv* und _auch_", "plain": "fett und kursiv und auch" },
+    { "markdown": "__fett__ ~~weg~~ `a*b*c`", "plain": "fett weg a*b*c" },
+    { "markdown": "**fett mit *kursiv* drin**", "plain": "fett mit kursiv drin" },
+    { "markdown": "snake_case_name und 2 * 3 * 4", "plain": "snake_case_name und 2 * 3 * 4" },
+    { "markdown": "**offen und *auch", "plain": "**offen und *auch" },
+    { "markdown": "\\*kein\\* Stern", "plain": "*kein* Stern" },
+    { "markdown": "[Notes](https://notes.welles.app) lesen", "plain": "Notes lesen" },
+    { "markdown": "[böse](javascript:alert(1))", "plain": "[böse](javascript:alert(1))" },
+    { "markdown": "Siehe https://example.org/a_b_c.", "plain": "Siehe https://example.org/a_b_c." },
+    { "markdown": "<b>kein</b> HTML & so", "plain": "<b>kein</b> HTML & so" }
+  ]
+}

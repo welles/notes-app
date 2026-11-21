@@ -72,8 +72,7 @@ public sealed class SyncConflictTests
         Assert.Equal(ConflictWinner.Server, r.Winner);
         Assert.Equal("server edit", r.Server!.Data["content"]!.GetValue<string>());
         var copy = await app.FindStickyAsync(r.ConflictCopy!.Id);
-        Assert.Equal("client edit", copy!.Content);
-        Assert.Equal("Konflikt", copy.Title);
+        Assert.Equal(("# Konflikt\n\nclient edit", null), (copy!.Content, copy.Title));
         Assert.Equal(2, (await app.AllStickiesAsync()).Count);
     }
 

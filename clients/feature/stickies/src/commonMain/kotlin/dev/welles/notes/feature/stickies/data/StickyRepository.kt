@@ -3,7 +3,7 @@ package dev.welles.notes.feature.stickies.data
 import dev.welles.notes.core.data.CaptureTarget
 import dev.welles.notes.core.data.LocalStore
 import dev.welles.notes.core.data.jsonOf
-import dev.welles.notes.core.data.toJson
+import kotlinx.serialization.json.JsonNull
 import dev.welles.notes.core.model.CaptureContent
 import dev.welles.notes.core.model.NoteColorNames
 import kotlinx.coroutines.flow.Flow
@@ -20,26 +20,28 @@ class StickyRepository(private val dao: StickyDao, private val store: LocalStore
     fun observe(id: String, @Suppress("UNUSED_PARAMETER") single: Unit = Unit): Flow<Sticky?> = dao.observe(id).map { it?.toModel() }
     suspend fun get(id: String): Sticky? = dao.get(id)?.toModel()
 
-    suspend fun create(contextId: String, title: String?, content: String, color: String = NoteColorNames.DEFAULT, pinned: Boolean = false): String =
-        store.create(STICKY_TYPE, newData(contextId, title, content, color, pinned))
+    suspend fun create(contextId: String, text: String, color: String = NoteColorNames.DEFAULT, pinned: Boolean = false): String =
+        store.create(STICKY_TYPE, newData(contextId, text, color, pinned))
 
-    suspend fun newData(contextId: String, title: String?, content: String, color: String = NoteColorNames.DEFAULT, pinned: Boolean = false): JsonObject =
+    /** Post-its have no title any more (see [StickyText]); `title` is written as null for older versions. */
+    suspend fun newData(contextId: String, text: String, color: String = NoteColorNames.DEFAULT, pinned: Boolean = false): JsonObject =
         jsonOf(
             "contextId" to contextId,
-            "title" to title?.trim()?.takeIf { it.isNotEmpty() },
-            "content" to content,
+            "title" to null,
+            "content" to text,
             "color" to color,
             "pinned" to pinned,
             "position" to topPosition(contextId),
         )
 
-    /** Only changed fields are written; title null clears it. */
-    suspend fun update(id: String, title: String?, content: String, color: String, pinned: Boolean) {
+    /** Only changed fields are written. Editing the text of a legacy post-it moves its title into the text. */
+    suspend fun update(id: String, text: String, color: String, pinned: Boolean) {
         val current = dao.get(id) ?: return
         val patch = buildMap<String, JsonElement> {
-            val t = title?.trim()?.takeIf { it.isNotEmpty() }
-            if (t != current.title) put("title", t.toJson())
-            if (content != current.content) put("content", JsonPrimitive(content))
+            if (text != StickyText.combine(current.title, current.content)) {
+                if (current.title != null) put("title", JsonNull)
+                put("content", JsonPrimitive(text))
+            }
             if (color != current.color) put("color", JsonPrimitive(color))
             if (pinned != current.pinned) put("pinned", JsonPrimitive(pinned))
         }
@@ -90,5 +92,5 @@ class StickyCaptureTarget(private val repository: StickyRepository) : CaptureTar
     override val displayName = "Post-it"
     override val entityType = STICKY_TYPE
     override suspend fun createData(content: CaptureContent, contextId: String) =
-        repository.newData(contextId, content.title, content.text)
+        repository.newData(contextId, StickyText.combine(content.title, content.text))
 }

@@ -12,7 +12,7 @@ import dev.welles.notes.feature.stickies.data.StickyRepository
 import dev.welles.notes.feature.stickies.ui.ROUTE_EDIT
 import dev.welles.notes.feature.stickies.ui.StickiesScreen
 import dev.welles.notes.feature.stickies.ui.StickiesViewModel
-import dev.welles.notes.feature.stickies.ui.StickyEditorScreen
+import dev.welles.notes.feature.stickies.ui.EditRequest
 import dev.welles.notes.feature.stickies.ui.StickyEditorViewModel
 import org.koin.core.module.dsl.viewModelOf
 import org.koin.dsl.bind
@@ -23,10 +23,11 @@ object StickiesFeature : ClientFeature {
     override val title = "Post-its"
     override val icon = Icons.Outlined.StickyNote2
     override val route = "stickies"
+    override val createRoute = ROUTE_EDIT
 
     override fun routes(builder: FeatureRoutes) {
         builder.screen(route) { _, nav -> StickiesScreen(nav) }
-        builder.screen(ROUTE_EDIT) { args, nav -> StickyEditorScreen(args["id"], nav) }
+        builder.screen(ROUTE_EDIT) { args, nav -> StickiesScreen(nav, routeEdit = EditRequest(args["id"])) }
     }
 }
 

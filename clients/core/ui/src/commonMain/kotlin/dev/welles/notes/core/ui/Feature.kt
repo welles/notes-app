@@ -17,6 +17,12 @@ interface ClientFeature {
     /** Start route of the module; it may register further routes in [routes]. */
     val route: String
 
+    /**
+     * Route of the module's own "new" screen. If set, the "+" button (and quick capture from outside, when the
+     * module is the default capture target) opens it instead of the generic capture dialog.
+     */
+    val createRoute: String? get() = null
+
     fun routes(builder: FeatureRoutes)
 }
 

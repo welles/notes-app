@@ -39,6 +39,7 @@ import dev.welles.notes.core.ui.NoteColors
 import dev.welles.notes.core.ui.NotesTheme
 import dev.welles.notes.feature.stickies.data.Sticky
 import dev.welles.notes.feature.stickies.data.StickyRepository
+import dev.welles.notes.feature.stickies.data.preview
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import org.koin.android.ext.android.inject
@@ -84,8 +85,9 @@ class SingleStickyWidgetConfigActivity : ComponentActivity() {
                                 },
                             ) {
                                 androidx.compose.foundation.layout.Column(Modifier.padding(12.dp)) {
-                                    s.title?.let { Text(it, fontWeight = FontWeight.SemiBold) }
-                                    Text(s.content, maxLines = 4, overflow = TextOverflow.Ellipsis)
+                                    val (heading, body) = s.preview()
+                                    heading?.let { Text(it, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                                    if (body.isNotEmpty()) Text(body, maxLines = 4, overflow = TextOverflow.Ellipsis)
                                 }
                             }
                         }

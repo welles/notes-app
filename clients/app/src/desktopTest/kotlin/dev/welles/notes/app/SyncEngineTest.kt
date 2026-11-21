@@ -42,7 +42,7 @@ class SyncEngineTest {
 
     @Test
     fun local_changes_are_pushed_and_server_state_applied() = runTest {
-        val id = t.stickies.create(Contexts.DEFAULT_ID, "T", "lokal")
+        val id = t.stickies.create(Contexts.DEFAULT_ID, "lokal")
 
         engine().sync(server)
 
@@ -80,7 +80,7 @@ class SyncEngineTest {
     @Test
     fun type_rejected_by_older_server_stays_in_outbox_and_is_retried_later() = runTest {
         server.entityTypes = listOf("core.context") // old server without the Post-its module
-        val id = t.stickies.create(Contexts.DEFAULT_ID, null, "wartet")
+        val id = t.stickies.create(Contexts.DEFAULT_ID, "wartet")
 
         val first = engine().sync(server)
 
@@ -98,7 +98,7 @@ class SyncEngineTest {
     @Test
     fun rejected_entry_from_push_result_is_kept() = runTest {
         // Server meta claims the type but rejects it in the push (e.g. module removed meanwhile).
-        val id = t.stickies.create(Contexts.DEFAULT_ID, null, "x")
+        val id = t.stickies.create(Contexts.DEFAULT_ID, "x")
         val rejecting = object : dev.welles.notes.core.sync.NotesApi by server {
             override suspend fun push(changes: List<dev.welles.notes.core.model.PushEnvelope>) =
                 dev.welles.notes.core.model.PushResponse(changes.map {
@@ -113,10 +113,10 @@ class SyncEngineTest {
     fun batch_entries_travel_in_one_push_and_contexts_come_first() = runTest {
         t.contexts.ensureDefaultContext()
         // Many single changes, then a context created offline with content in it.
-        repeat(5) { t.stickies.create(Contexts.DEFAULT_ID, null, "n$it") }
+        repeat(5) { t.stickies.create(Contexts.DEFAULT_ID, "n$it") }
         val ctx = t.contexts.create("Reise")
-        val inCtx = t.stickies.create(ctx, null, "im neuen Kontext")
-        val source = t.stickies.create(Contexts.DEFAULT_ID, null, "wird umgewandelt")
+        val inCtx = t.stickies.create(ctx, "im neuen Kontext")
+        val source = t.stickies.create(Contexts.DEFAULT_ID, "wird umgewandelt")
         // "Move to context" of two entities = one batch
         t.actions.moveToContext(listOf(EntityRef(STICKY_TYPE, source), EntityRef(STICKY_TYPE, inCtx)), Contexts.DEFAULT_ID)
 
@@ -138,7 +138,7 @@ class SyncEngineTest {
         // Server purged tombstones meanwhile; we were offline and created something.
         server.rows.remove(STICKY_TYPE to "019a8f00-0000-7000-8000-00000000d001")
         server.fullResyncOnce = true
-        val pending = t.stickies.create(Contexts.DEFAULT_ID, null, "offline")
+        val pending = t.stickies.create(Contexts.DEFAULT_ID, "offline")
 
         val result = engine().sync(server)
 
@@ -150,7 +150,7 @@ class SyncEngineTest {
 
     @Test
     fun unsupported_protocol_leaves_local_data_untouched() = runTest {
-        val id = t.stickies.create(Contexts.DEFAULT_ID, null, "x")
+        val id = t.stickies.create(Contexts.DEFAULT_ID, "x")
         server.protocol = ProtocolRange(2, 3)
 
         assertFailsWith<ApiException.ProtocolUnsupported> { engine().sync(server) }
@@ -164,7 +164,7 @@ class SyncEngineTest {
         val id = "019a8f00-0000-7000-8000-00000000e001"
         server.put(STICKY_TYPE, id, sticky("v1"))
         engine().sync(server)
-        t.stickies.update(id, null, "lokal", "yellow", false)
+        t.stickies.update(id, "lokal", "yellow", false)
         server.put(STICKY_TYPE, id, sticky("server neuer"), modifiedAt = "2099-01-01T00:00:00.000Z")
 
         engine().sync(server)

@@ -30,6 +30,10 @@ window.notes = {
       const input = document.getElementById("notes-capture-input");
       if (input) { e.preventDefault(); input.focus(); }
     });
+    // Links in rendered Markdown open (new tab) without also opening the post-it they are on.
+    window.addEventListener("click", (e) => {
+      if (e.target instanceof Element && e.target.closest(".md a")) e.stopPropagation();
+    }, true);
     // Ctrl+Enter in the post-it dialog clicks "Speichern".
     document.addEventListener("keydown", (e) => {
       if (e.key !== "Enter" || !(e.ctrlKey || e.metaKey)) return;
