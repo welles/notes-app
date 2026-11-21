@@ -58,7 +58,7 @@ public sealed class GenericModuleTests
 
         Assert.Equal(Sticky.TypeName, reference.EntityType);
         var sticky = (await app.FindStickyAsync(reference.Id))!;
-        Assert.Equal(("Idee", "Zeile 1\nZeile 2", Context.DefaultId), (sticky.Title, sticky.Content, sticky.ContextId));
+        Assert.Equal((null, "# Idee\n\nZeile 1\nZeile 2", Context.DefaultId), (sticky.Title, sticky.Content, sticky.ContextId));
     }
 
     [Fact]

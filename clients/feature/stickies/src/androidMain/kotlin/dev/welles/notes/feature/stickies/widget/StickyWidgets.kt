@@ -42,6 +42,7 @@ import dev.welles.notes.core.sync.SyncObserver
 import dev.welles.notes.core.ui.AppIntents
 import dev.welles.notes.core.ui.NoteColors
 import dev.welles.notes.feature.stickies.data.Sticky
+import dev.welles.notes.feature.stickies.data.preview
 import dev.welles.notes.feature.stickies.data.StickyRepository
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -113,8 +114,9 @@ class SingleStickyWidget : GlanceAppWidget(), KoinComponent {
                     GlanceModifier.fillMaxSize().cornerRadius(16.dp).background(NoteColors.background(s.color)).padding(12.dp)
                         .clickable(actionStartActivity(appIntent(context) { putExtra(AppIntents.EXTRA_OPEN_STICKY, s.id) })),
                 ) {
-                    s.title?.let { Text(it, style = TextStyle(fontWeight = FontWeight.Bold, fontSize = 15.sp, color = NoteText), maxLines = 2) }
-                    Text(s.content, style = TextStyle(fontSize = 14.sp, color = NoteText))
+                    val (heading, body) = s.preview()
+                    heading?.let { Text(it, style = TextStyle(fontWeight = FontWeight.Bold, fontSize = 15.sp, color = NoteText), maxLines = 2) }
+                    if (body.isNotEmpty()) Text(body, style = TextStyle(fontSize = 14.sp, color = NoteText))
                 }
             }
             State.Deleted -> Empty(context, "Gelöscht")
@@ -180,8 +182,9 @@ class PinnedStickiesWidget : GlanceAppWidget(), KoinComponent {
                                 GlanceModifier.fillMaxWidth().cornerRadius(12.dp).background(NoteColors.background(s.color)).padding(10.dp)
                                     .clickable(actionStartActivity(appIntent(context) { putExtra(AppIntents.EXTRA_OPEN_STICKY, s.id) })),
                             ) {
-                                s.title?.let { Text(it, style = TextStyle(fontWeight = FontWeight.Bold, color = NoteText), maxLines = 1) }
-                                if (s.content.isNotEmpty()) Text(s.content, style = TextStyle(fontSize = 13.sp, color = NoteText), maxLines = 4)
+                                val (heading, body) = s.preview()
+                                heading?.let { Text(it, style = TextStyle(fontWeight = FontWeight.Bold, color = NoteText), maxLines = 1) }
+                                if (body.isNotEmpty()) Text(body, style = TextStyle(fontSize = 13.sp, color = NoteText), maxLines = 4)
                             }
                             Spacer(GlanceModifier.height(0.dp))
                         }

@@ -40,7 +40,7 @@ class LocalStoreTest {
 
     @Test
     fun create_records_outbox_entry_without_base_version() = runTest {
-        val id = t.stickies.create(Contexts.DEFAULT_ID, "Titel", "Text")
+        val id = t.stickies.create(Contexts.DEFAULT_ID, "Text")
         val entry = assertNotNull(t.db.outboxDao().get(STICKY_TYPE, id))
         assertNull(entry.baseVersion)
         assertFalse(entry.deleted)
@@ -70,7 +70,7 @@ class LocalStoreTest {
         t.store.applyRemote(remote(id, 7))
         assertEquals("teal", t.stickies.get(id)!!.color) // unknown colour kept in the column, display falls back
 
-        t.stickies.update(id, "T", "lokal geändert", "teal", false)
+        t.stickies.update(id, "lokal geändert", "teal", false)
 
         val payload = NotesJson.parseToJsonElement(t.db.outboxDao().get(STICKY_TYPE, id)!!.payload).jsonObject
         assertEquals("lokal geändert", payload.str("content"))
@@ -81,7 +81,7 @@ class LocalStoreTest {
 
     @Test
     fun modified_at_is_strictly_increasing_within_the_same_millisecond() = runTest {
-        val id = t.stickies.create(Contexts.DEFAULT_ID, null, "a")
+        val id = t.stickies.create(Contexts.DEFAULT_ID, "a")
         val first = t.db.outboxDao().get(STICKY_TYPE, id)!!.modifiedAt
         t.stickies.setColor(id, "pink")
         val second = t.db.outboxDao().get(STICKY_TYPE, id)!!.modifiedAt
@@ -92,7 +92,7 @@ class LocalStoreTest {
     fun remote_changes_do_not_overwrite_pending_local_changes() = runTest {
         val id = "019a8f00-0000-7000-8000-00000000a003"
         t.store.applyRemote(remote(id, 3))
-        t.stickies.update(id, "T", "lokal", "teal", false)
+        t.stickies.update(id, "lokal", "teal", false)
 
         t.store.applyRemote(remote(id, 9))
 
@@ -101,7 +101,7 @@ class LocalStoreTest {
 
     @Test
     fun push_completion_applies_server_state_or_rebases_when_edited_in_flight() = runTest {
-        val id = t.stickies.create(Contexts.DEFAULT_ID, null, "a")
+        val id = t.stickies.create(Contexts.DEFAULT_ID, "a")
         val sent = t.db.outboxDao().get(STICKY_TYPE, id)!!
         val server = SyncEnvelope(STICKY_TYPE, id, 42, false, NotesJson.parseToJsonElement(sent.payload).jsonObject)
 
@@ -117,7 +117,7 @@ class LocalStoreTest {
 
     @Test
     fun delete_and_restore() = runTest {
-        val id = t.stickies.create(Contexts.DEFAULT_ID, null, "a")
+        val id = t.stickies.create(Contexts.DEFAULT_ID, "a")
         t.stickies.delete(id)
         assertTrue(t.stickies.get(id)!!.deleted)
         assertTrue(t.db.outboxDao().get(STICKY_TYPE, id)!!.deleted)
@@ -136,15 +136,15 @@ class LocalStoreTest {
 
         val sticky = t.stickies.get(ref.id)!!
         assertEquals(work, sticky.contextId)
-        assertEquals("Idee", sticky.title)
-        assertEquals("Zeile 1\nZeile 2", sticky.content)
+        assertNull(sticky.title)
+        assertEquals("# Idee\n\nZeile 1\nZeile 2", sticky.content)
     }
 
     @Test
     fun full_resync_keeps_only_pending_entities() = runTest {
         val synced = "019a8f00-0000-7000-8000-00000000a004"
         t.store.applyRemote(remote(synced, 3))
-        val pending = t.stickies.create(Contexts.DEFAULT_ID, null, "offline")
+        val pending = t.stickies.create(Contexts.DEFAULT_ID, "offline")
 
         t.store.clearForFullResync()
 
@@ -154,9 +154,9 @@ class LocalStoreTest {
 
     @Test
     fun reorder_uses_midpoint_and_renormalises() = runTest {
-        val c = t.stickies.create(Contexts.DEFAULT_ID, null, "c")
-        val b = t.stickies.create(Contexts.DEFAULT_ID, null, "b")
-        val a = t.stickies.create(Contexts.DEFAULT_ID, null, "a")
+        val c = t.stickies.create(Contexts.DEFAULT_ID, "c")
+        val b = t.stickies.create(Contexts.DEFAULT_ID, "b")
+        val a = t.stickies.create(Contexts.DEFAULT_ID, "a")
         suspend fun order() = t.stickies.observe(Contexts.DEFAULT_ID).first().map { it.id }
         assertEquals(listOf(a, b, c), order())
 
@@ -201,7 +201,7 @@ class ContextAndActionsTest {
     fun convert_creates_target_in_same_context_and_deletes_source_in_one_batch() = runTest {
         t.contexts.ensureDefaultContext()
         val work = t.contexts.create("Arbeit")
-        val source = t.stickies.create(work, "Titel", "Text")
+        val source = t.stickies.create(work, "# Titel\n\nText")
         assertTrue(t.targets.conversionAvailable)
 
         val target = t.actions.convert(dev.welles.notes.core.model.EntityRef(STICKY_TYPE, source), "dummy", deleteSource = true)
@@ -219,7 +219,7 @@ class ContextAndActionsTest {
     fun contexts_can_only_be_deleted_when_empty_and_default_never() = runTest {
         t.contexts.ensureDefaultContext()
         val work = t.contexts.create("Arbeit")
-        t.stickies.create(work, null, "x")
+        t.stickies.create(work, "x")
         t.actions.capture(CaptureContent(null, "y"), targetKey = "dummy", contextId = work)
 
         assertFalse(t.contexts.delete(Contexts.DEFAULT_ID))

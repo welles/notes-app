@@ -96,7 +96,9 @@ fun NotesShell(
     val scope = rememberCoroutineScope()
     var capturing by remember { mutableStateOf(false) }
 
-    LaunchedEffect(Unit) { captureRequests.collect { capturing = true } }
+    // Quick capture from outside (widget "+"): the default target's own "new" screen if it has one.
+    val captureRoute = remember { features.firstOrNull { it.key == shell.targets.default.key }?.createRoute }
+    LaunchedEffect(Unit) { captureRequests.collect { if (captureRoute != null) nav.navigate(captureRoute) else capturing = true } }
     LaunchedEffect(Unit) { navigationRequests.collect { nav.navigate(it) } }
     LaunchedEffect(notice) {
         notice?.let {
@@ -118,7 +120,8 @@ fun NotesShell(
 
     BackHandler(enabled = nav.canGoBack) { nav.back() }
     val path = routePath(nav.current)
-    val isFeatureRoot = features.any { it.route == path }
+    val currentFeature = features.firstOrNull { it.route == path }
+    val isFeatureRoot = currentFeature != null
 
     CompositionLocalProvider(LocalSnackbar provides snackbar, LocalActiveContext provides activeContext) {
         Scaffold(
@@ -135,7 +138,9 @@ fun NotesShell(
                 )
             },
             floatingActionButton = {
-                if (isFeatureRoot) FloatingActionButton(onClick = { capturing = true }) { Icon(Icons.Filled.Add, "Schnell notieren") }
+                if (isFeatureRoot) FloatingActionButton(onClick = {
+                    currentFeature?.createRoute?.let(nav::navigate) ?: run { capturing = true }
+                }) { Icon(Icons.Filled.Add, "Neu") }
             },
             snackbarHost = { SnackbarHost(snackbar) },
             bottomBar = {

@@ -56,7 +56,7 @@ class LiveSyncTest {
             b.live.start()
             withTimeout(5.seconds) { b.live.connected.first { it } }
 
-            val id = a.db.stickies.create(Contexts.DEFAULT_ID, null, "live")
+            val id = a.db.stickies.create(Contexts.DEFAULT_ID, "live")
             a.controller.syncNow()
             awaitContent(b, id, "live")
         } finally {
@@ -73,7 +73,7 @@ class LiveSyncTest {
             a.controller.syncNow(); b.controller.syncNow()
             server.failNextConnects = 3 // server "down" for the first attempts
             // Change made while b is not connected – must arrive via the initial event after reconnecting.
-            val id = a.db.stickies.create(Contexts.DEFAULT_ID, null, "verpasst")
+            val id = a.db.stickies.create(Contexts.DEFAULT_ID, "verpasst")
             a.controller.syncNow()
             b.live.start()
 
@@ -114,13 +114,13 @@ class LiveSyncTest {
         val b = Device("b", api, url)
         try {
             a.db.contexts.ensureDefaultContext(); b.db.contexts.ensureDefaultContext()
-            val id = a.db.stickies.create(Contexts.DEFAULT_ID, "Latenz", "0")
+            val id = a.db.stickies.create(Contexts.DEFAULT_ID, "0")
             a.controller.syncNow(); b.controller.syncNow()
             b.live.start()
             withTimeout(10.seconds) { b.live.connected.first { it } }
 
             val samples = (1..20).map { i ->
-                a.db.stickies.update(id, "Latenz", "$i", "yellow", false)
+                a.db.stickies.update(id, "$i", "yellow", false)
                 val start = TimeSource.Monotonic.markNow()
                 a.controller.syncNow()
                 awaitContent(b, id, "$i")

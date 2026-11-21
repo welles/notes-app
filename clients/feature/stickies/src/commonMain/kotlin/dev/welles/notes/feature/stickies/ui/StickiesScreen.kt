@@ -29,8 +29,8 @@ import androidx.compose.material.icons.filled.Transform
 import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material.icons.outlined.StickyNote2
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.LocalContentColor
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -50,7 +50,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.runtime.key
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.welles.notes.core.data.CaptureTarget
@@ -60,6 +60,7 @@ import dev.welles.notes.core.ui.LocalSnackbar
 import dev.welles.notes.core.ui.MoveToContextDialog
 import dev.welles.notes.core.ui.Navigator
 import dev.welles.notes.core.ui.NoteColors
+import dev.welles.notes.core.ui.markdownAnnotated
 import dev.welles.notes.core.ui.collectAsStateCompat
 import dev.welles.notes.feature.stickies.data.STICKY_TYPE
 import dev.welles.notes.feature.stickies.data.Sticky
@@ -77,7 +78,7 @@ import sh.calvin.reorderable.rememberReorderableLazyGridState
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
-fun StickiesScreen(navigator: Navigator) {
+fun StickiesScreen(navigator: Navigator, routeEdit: EditRequest? = null) {
     val vm: StickiesViewModel = koinViewModel()
     val sync: SyncController = koinInject()
     val syncState by sync.state.collectAsStateCompat()
@@ -92,6 +93,9 @@ fun StickiesScreen(navigator: Navigator) {
     var dragging by remember { mutableStateOf(false) }
     LaunchedEffect(stickies) { if (!dragging) items = stickies.orEmpty() }
 
+    // Opened from the board: local state, so the board keeps its scroll position.
+    // Opened via route (new post-it, widget, desktop window): closing goes back.
+    var editing by remember { mutableStateOf<EditRequest?>(null) }
     var moving by remember { mutableStateOf<Sticky?>(null) }
     var converting by remember { mutableStateOf<Pair<Sticky, CaptureTarget>?>(null) }
     val desktop: dev.welles.notes.feature.stickies.StickyDesktopPlacement? = org.koin.compose.getKoin().getOrNull()
@@ -154,7 +158,7 @@ fun StickiesScreen(navigator: Navigator) {
                                 vm.reorder(sticky.id, group.getOrNull(i - 1)?.id, group.getOrNull(i + 1)?.id)
                             },
                         ),
-                        onOpen = { navigator.navigate("$ROUTE_EDIT?id=${sticky.id}") },
+                        onOpen = { editing = EditRequest(sticky.id) },
                         onPin = { vm.setPinned(sticky, !sticky.pinned) },
                         onColor = { vm.setColor(sticky, it) },
                         onMove = { moving = sticky },
@@ -183,7 +187,12 @@ fun StickiesScreen(navigator: Navigator) {
             dismissButton = { TextButton(onClick = { vm.convert(s, target.key, false); converting = null }) { Text("Umwandeln & behalten") } },
         )
     }
+    if (routeEdit != null) key(routeEdit) { StickyEditorDialog(routeEdit.id, onClose = navigator::back) }
+    else editing?.let { e -> key(e) { StickyEditorDialog(e.id, onClose = { editing = null }) } }
 }
+
+/** Which post-it the editor shows; [id] null = a new one. */
+data class EditRequest(val id: String?)
 
 @Composable
 private fun StickyCard(
@@ -201,17 +210,18 @@ private fun StickyCard(
 ) {
     var menu by remember { mutableStateOf(false) }
     var colors by remember { mutableStateOf(false) }
-    Card(
-        colors = CardDefaults.cardColors(containerColor = NoteColors.background(sticky.color), contentColor = NoteColors.text),
-        elevation = CardDefaults.cardElevation(defaultElevation = if (dragging) 8.dp else 1.dp),
-        modifier = modifier.fillMaxWidth().heightIn(min = 110.dp).clickable(onClick = onOpen),
+    StickyPaper(
+        color = sticky.color,
+        elevation = if (dragging) 12.dp else 3.dp,
+        modifier = modifier.fillMaxWidth().heightIn(min = 120.dp).clickable(onClick = onOpen),
     ) {
-        Box(Modifier.fillMaxWidth().heightIn(min = 110.dp)) {
-            Column(Modifier.padding(start = 12.dp, top = 12.dp, end = 12.dp, bottom = 36.dp)) {
-                sticky.title?.let { Text(it, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis) }
-                if (sticky.content.isNotEmpty()) Text(sticky.content, style = MaterialTheme.typography.bodyMedium, maxLines = 12, overflow = TextOverflow.Ellipsis)
+        CompositionLocalProvider(LocalContentColor provides NoteColors.text) {
+            val text = remember(sticky.text) { markdownAnnotated(sticky.text) }
+            Column(Modifier.padding(start = 14.dp, top = 14.dp, end = 14.dp, bottom = 36.dp)) {
+                if (text.isNotEmpty()) Text(text, style = MaterialTheme.typography.bodyMedium, maxLines = 12, overflow = TextOverflow.Ellipsis)
             }
-            Row(Modifier.align(Alignment.BottomEnd)) {
+            // Leaves the folded corner free.
+            Row(Modifier.align(Alignment.BottomEnd).padding(end = 16.dp)) {
                 IconButton(onClick = onPin, modifier = Modifier.size(36.dp)) {
                     Icon(if (sticky.pinned) Icons.Filled.PushPin else Icons.Outlined.PushPin, if (sticky.pinned) "Lösen" else "Anpinnen", Modifier.size(18.dp))
                 }

@@ -50,6 +50,9 @@ import dev.welles.notes.core.data.LocalSettingsDao
 import dev.welles.notes.core.model.Contexts
 import dev.welles.notes.core.ui.ColorSwatches
 import dev.welles.notes.core.ui.NoteColors
+import dev.welles.notes.core.ui.MarkdownHighlight
+import dev.welles.notes.core.model.Markdown
+import dev.welles.notes.feature.stickies.ui.StickyPaper
 import dev.welles.notes.core.ui.NotesTheme
 import dev.welles.notes.feature.stickies.StickyDesktopPlacement
 import dev.welles.notes.feature.stickies.data.Sticky
@@ -227,8 +230,7 @@ private fun StickyWindowContent(
 ) {
     val sticky by remember { repository.observe(stickyId, Unit) }.collectAsState(null)
     var loaded by remember { mutableStateOf<Sticky?>(null) }
-    var title by remember { mutableStateOf("") }
-    var content by remember { mutableStateOf("") }
+    var text by remember { mutableStateOf("") }
     var hovered by remember { mutableStateOf(false) }
     var colorMenu by remember { mutableStateOf(false) }
     var layer by remember { mutableStateOf(initialLayer) }
@@ -239,26 +241,31 @@ private fun StickyWindowContent(
             if (s == null || s.deleted) { onGone(); return@collect }
             // Changed elsewhere (sync, main window)? Take it over; own saves come back identical and change nothing.
             val prev = loaded
-            if (prev == null || s.title != prev.title) title = s.title.orEmpty()
-            if (prev == null || s.content != prev.content) content = s.content
+            if (prev == null || s.text != prev.text) text = s.text
             loaded = s
         }
     }
     // Autosave while typing.
     LaunchedEffect(Unit) {
-        snapshotFlow { title to content }.drop(1).debounce(600.milliseconds).collect { (t, c) ->
+        snapshotFlow { text }.drop(1).debounce(600.milliseconds).collect { t ->
             val s = repository.get(stickyId) ?: return@collect
-            if (t != s.title.orEmpty() || c != s.content) repository.update(stickyId, t, c, s.color, s.pinned)
+            if (t != s.text) repository.update(stickyId, t, s.color, s.pinned)
         }
     }
-    LaunchedEffect(sticky?.title, sticky?.content) { window.title = "Notes-Post-it: " + (sticky?.title ?: sticky?.content?.lineSequence()?.firstOrNull().orEmpty()).take(40) }
+    LaunchedEffect(sticky?.text) {
+        window.title = "Notes-Post-it: " + Markdown.toPlainText(sticky?.text.orEmpty()).lineSequence().firstOrNull { it.isNotBlank() }.orEmpty().trim().take(40)
+    }
 
     val s = sticky ?: return
-    Column(
-        Modifier.fillMaxSize().background(NoteColors.background(s.color))
+    StickyPaper(
+        color = s.color,
+        fold = 0.dp,
+        elevation = 0.dp,
+        modifier = Modifier.fillMaxSize()
             .onPointerEvent(PointerEventType.Enter) { hovered = true }
             .onPointerEvent(PointerEventType.Exit) { hovered = false },
     ) {
+    Column(Modifier.fillMaxSize()) {
         // Drag bar (moves the window) + tools, visible on hover.
         Row(
             Modifier.fillMaxWidth().height(30.dp).moveWindow(window).padding(horizontal = 4.dp),
@@ -281,14 +288,17 @@ private fun StickyWindowContent(
                 ToolButton(Icons.Filled.Close, "Vom Desktop nehmen", onClose)
             }
         }
-        val style = TextStyle(color = NoteColors.text, fontSize = 14.sp)
-        BasicTextField(title, { title = it }, singleLine = true, textStyle = style.copy(fontWeight = FontWeight.SemiBold, fontSize = 15.sp),
-            cursorBrush = SolidColor(NoteColors.text), modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp))
-        BasicTextField(content, { content = it }, textStyle = style, cursorBrush = SolidColor(NoteColors.text),
-            modifier = Modifier.fillMaxWidth().weight(1f).padding(horizontal = 12.dp, vertical = 6.dp))
+        BasicTextField(
+            text, { text = it },
+            textStyle = TextStyle(color = NoteColors.text, fontSize = 14.sp),
+            cursorBrush = SolidColor(NoteColors.text),
+            visualTransformation = MarkdownHighlight,
+            modifier = Modifier.fillMaxWidth().weight(1f).padding(horizontal = 12.dp, vertical = 2.dp),
+        )
         Box(Modifier.fillMaxWidth().height(14.dp)) {
             Box(Modifier.align(Alignment.BottomEnd).size(14.dp).resizeWindow(window))
         }
+    }
     }
 }
 

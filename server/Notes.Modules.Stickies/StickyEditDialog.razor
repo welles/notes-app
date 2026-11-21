@@ -1,47 +1,46 @@
-<MudDialog Style="@($"background:{NoteColors.Background(_color)};color:{NoteColors.NoteText}")" Class="notes-sticky-dialog">
+@* The dialog is the post-it itself: same paper, fold and shadow as on the board. *@
+<MudDialog Class="notes-sticky-dialog" ContentClass="pa-0">
     <DialogContent>
-        <MudTextField @bind-Value="_title" Placeholder="Titel" Variant="Variant.Text" Underline="false"
-                      Class="notes-sticky-title" Immediate="true" />
-        <MudTextField @bind-Value="_content" Placeholder="Notiz …" Variant="Variant.Text" Underline="false"
-                      Lines="6" Sizing="InputSizing.Auto" MaxLines="30" Immediate="true" AutoFocus="true" />
-        <div class="d-flex align-center flex-wrap gap-1 mt-3">
-            @foreach (var c in StickyColors.All)
-            {
-                <button type="button" title="@NoteColors.Label(c)" class="notes-swatch @(c == _color ? "selected" : "")"
-                        style="background:@NoteColors.Background(c)" @onclick="() => _color = c"></button>
-            }
-            <MudSpacer />
-            <MudToggleIconButton @bind-Toggled="_pinned" Icon="@Icons.Material.Outlined.PushPin" ToggledIcon="@Icons.Material.Filled.PushPin"
-                                 Style="@($"color:{NoteColors.NoteText}")" title="Anpinnen" />
+        <div class="notes-sticky notes-sticky-large" style="--note:@NoteColors.Background(_color)">
+            <div class="notes-sticky-card notes-sticky-editor" style="color:@NoteColors.NoteText">
+                <MudTextField @bind-Value="_text" Placeholder="Notiz …" Variant="Variant.Text" Underline="false"
+                              Lines="8" Sizing="InputSizing.Auto" MaxLines="24" Immediate="true" AutoFocus="true" Class="notes-sticky-text" />
+                <div class="d-flex align-center flex-wrap gap-1 mt-3 notes-sticky-editor-tools">
+                    @foreach (var c in StickyColors.All)
+                    {
+                        <button type="button" title="@NoteColors.Label(c)" class="notes-swatch @(c == _color ? "selected" : "")"
+                                style="background:@NoteColors.Background(c)" @onclick="() => _color = c"></button>
+                    }
+                    <MudToggleIconButton @bind-Toggled="_pinned" Icon="@Icons.Material.Outlined.PushPin" ToggledIcon="@Icons.Material.Filled.PushPin"
+                                         Size="Size.Small" Style="@($"color:{NoteColors.NoteText}")" title="Anpinnen" />
+                    <MudSpacer />
+                    <MudButton OnClick="() => Dialog.Cancel()" Size="Size.Small" Style="@($"color:{NoteColors.NoteText}")">Abbrechen</MudButton>
+                    <MudButton OnClick="Save" Size="Size.Small" Variant="Variant.Filled" Color="Color.Dark">Speichern</MudButton>
+                </div>
+            </div>
         </div>
     </DialogContent>
-    <DialogActions>
-        <MudButton OnClick="() => Dialog.Cancel()" Style="@($"color:{NoteColors.NoteText}")">Abbrechen</MudButton>
-        <MudButton OnClick="Save" Variant="Variant.Filled" Color="Color.Dark">Speichern</MudButton>
-    </DialogActions>
 </MudDialog>
 
 @code {
-    public sealed record Result(string? Title, string Content, string Color, bool Pinned);
+    public sealed record Result(string Text, string Color, bool Pinned);
 
     [CascadingParameter] public required IMudDialogInstance Dialog { get; set; }
     [Parameter] public Sticky? Sticky { get; set; }
 
-    private string? _title;
-    private string _content = "";
+    private string _text = "";
     private string _color = StickyColors.Default;
     private bool _pinned;
 
     protected override void OnInitialized()
     {
         if (Sticky is null) return;
-        _title = Sticky.Title;
-        _content = Sticky.Content;
+        _text = StickyText.Of(Sticky);
         _color = Sticky.Color;
         _pinned = Sticky.Pinned;
     }
 
-    private void Save() => Dialog.Close(DialogResult.Ok(new Result(string.IsNullOrWhiteSpace(_title) ? null : _title.Trim(), _content, _color, _pinned)));
+    private void Save() => Dialog.Close(DialogResult.Ok(new Result(_text ?? "", _color, _pinned)));
 
     public static async Task<Result?> ShowAsync(IDialogService dialogs, Sticky? sticky)
     {

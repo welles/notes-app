@@ -87,8 +87,8 @@ else
     private async Task CreateAsync()
     {
         if (await StickyEditDialog.ShowAsync(Dialogs, null) is not { } r) return;
-        if (string.IsNullOrWhiteSpace(r.Content) && r.Title is null) return;
-        var id = await Stickies.CreateAsync(Active.Id, r.Title, r.Content, r.Color);
+        if (string.IsNullOrWhiteSpace(r.Text)) return;
+        var id = await Stickies.CreateAsync(Active.Id, r.Text, r.Color);
         if (r.Pinned && await Stickies.GetAsync(id) is { } created)
             await Stickies.UpdateAsync(id, created.Version, new StickyPatch(Pinned: true));
     }
@@ -96,12 +96,13 @@ else
     private async Task EditAsync(Sticky sticky)
     {
         if (await StickyEditDialog.ShowAsync(Dialogs, sticky) is not { } r) return;
-        var patch = new StickyPatch(
-            Title: r.Title != sticky.Title && r.Title is not null ? r.Title : null,
-            ClearTitle: r.Title is null && sticky.Title is not null,
-            Content: r.Content != sticky.Content ? r.Content : null,
-            Color: r.Color != sticky.Color ? r.Color : null,
-            Pinned: r.Pinned != sticky.Pinned ? r.Pinned : null);
+        // A legacy title is only moved into the text when the text was actually edited.
+        var text = r.Text != StickyText.Of(sticky) ? StickyPatch.Text(sticky, r.Text) : new StickyPatch();
+        var patch = text with
+        {
+            Color = r.Color != sticky.Color ? r.Color : null,
+            Pinned = r.Pinned != sticky.Pinned ? r.Pinned : null,
+        };
         if (patch == new StickyPatch()) return;
         await UpdateAsync(sticky, patch);
     }

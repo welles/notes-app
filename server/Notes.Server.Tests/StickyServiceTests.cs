@@ -12,9 +12,9 @@ public sealed class StickyServiceTests
     public async Task New_stickies_go_to_the_top_and_pinned_ones_come_first()
     {
         await using var app = await TestApp.CreateProductionAsync();
-        var a = await app.Stickies.CreateAsync(Context.DefaultId, null, "a");
-        var b = await app.Stickies.CreateAsync(Context.DefaultId, null, "b");
-        var c = await app.Stickies.CreateAsync(Context.DefaultId, "Titel", "c", "blue");
+        var a = await app.Stickies.CreateAsync(Context.DefaultId, "a");
+        var b = await app.Stickies.CreateAsync(Context.DefaultId, "b");
+        var c = await app.Stickies.CreateAsync(Context.DefaultId, "# Titel\n\nc", "blue");
 
         var bSticky = (await app.Stickies.GetAsync(b))!;
         await app.Stickies.UpdateAsync(b, bSticky.Version, new StickyPatch(Pinned: true));
@@ -28,7 +28,7 @@ public sealed class StickyServiceTests
     public async Task Rapid_local_edits_are_not_mistaken_for_duplicates()
     {
         await using var app = await TestApp.CreateProductionAsync();
-        var id = await app.Stickies.CreateAsync(Context.DefaultId, null, "a");
+        var id = await app.Stickies.CreateAsync(Context.DefaultId, "a");
 
         // Clock does not advance between edits.
         for (var i = 0; i < 3; i++)
@@ -45,7 +45,7 @@ public sealed class StickyServiceTests
     public async Task Stale_web_edit_is_resolved_like_a_sync_conflict()
     {
         await using var app = await TestApp.CreateProductionAsync();
-        var id = await app.Stickies.CreateAsync(Context.DefaultId, null, "a");
+        var id = await app.Stickies.CreateAsync(Context.DefaultId, "a");
         var v = (await app.Stickies.GetAsync(id))!.Version;
         await app.Stickies.UpdateAsync(id, v, new StickyPatch(Content: "first tab"));
         app.Time.Advance(TimeSpan.FromSeconds(5));
@@ -54,30 +54,30 @@ public sealed class StickyServiceTests
 
         Assert.Equal(PushStatus.Conflict, r.Status);
         Assert.Equal("second tab", (await app.Stickies.GetAsync(id))!.Content);
-        Assert.Contains(await app.Stickies.ListAsync(Context.DefaultId), s => s.Content == "first tab" && s.Title == "Konflikt");
+        Assert.Contains(await app.Stickies.ListAsync(Context.DefaultId), s => s.Content == "# Konflikt\n\nfirst tab" && s.Title == null);
     }
 
     [Fact]
     public async Task Delete_and_undo()
     {
         await using var app = await TestApp.CreateProductionAsync();
-        var id = await app.Stickies.CreateAsync(Context.DefaultId, "t", "a");
+        var id = await app.Stickies.CreateAsync(Context.DefaultId, "# t\n\na");
 
         await app.Stickies.DeleteAsync(id, (await app.Stickies.GetAsync(id))!.Version);
         Assert.Empty(await app.Stickies.ListAsync(Context.DefaultId));
 
         await app.Stickies.RestoreAsync(id);
         var restored = Assert.Single(await app.Stickies.ListAsync(Context.DefaultId));
-        Assert.Equal(("t", "a"), (restored.Title, restored.Content));
+        Assert.Equal("# t\n\na", restored.Content);
     }
 
     [Fact]
     public async Task Reorder_uses_midpoint_and_renormalises_when_gap_is_tiny()
     {
         await using var app = await TestApp.CreateProductionAsync();
-        var c = await app.Stickies.CreateAsync(Context.DefaultId, null, "c");
-        var b = await app.Stickies.CreateAsync(Context.DefaultId, null, "b");
-        var a = await app.Stickies.CreateAsync(Context.DefaultId, null, "a");
+        var c = await app.Stickies.CreateAsync(Context.DefaultId, "c");
+        var b = await app.Stickies.CreateAsync(Context.DefaultId, "b");
+        var a = await app.Stickies.CreateAsync(Context.DefaultId, "a");
         Assert.Equal([a, b, c], (await app.Stickies.ListAsync(Context.DefaultId)).Select(s => s.Id));
 
         await app.Stickies.ReorderAsync(c, after: a, before: b);
@@ -98,7 +98,7 @@ public sealed class StickyServiceTests
     public async Task Every_change_updates_sync_changes_in_the_same_version()
     {
         await using var app = await TestApp.CreateProductionAsync();
-        var id = await app.Stickies.CreateAsync(Context.DefaultId, null, "a");
+        var id = await app.Stickies.CreateAsync(Context.DefaultId, "a");
         await app.Stickies.UpdateAsync(id, (await app.Stickies.GetAsync(id))!.Version, new StickyPatch(Color: "pink"));
 
         await using var db = await app.Db.CreateDbContextAsync();

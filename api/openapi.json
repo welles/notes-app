@@ -454,11 +454,12 @@
             "type": [
               "null",
               "string"
-            ]
+            ],
+            "description": "Legacy, current clients write null. If set, show it as a level-1 heading above content; current clients move it into content on the next edit."
           },
           "content": {
             "type": "string",
-            "description": "Plaintext, line breaks preserved."
+            "description": "Basic Markdown (headings, lists, checkboxes, bold, italic, strikethrough, code, links), line breaks preserved."
           },
           "color": {
             "type": "string",

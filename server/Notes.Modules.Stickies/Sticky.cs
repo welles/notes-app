@@ -10,9 +10,10 @@ public sealed class Sticky : ContextScopedEntity
 {
     public const string TypeName = "stickies.sticky";
 
+    /// <summary>Legacy: post-its no longer have a title. Shown as a heading above <see cref="Content"/> (<see cref="StickyText"/>).</summary>
     public string? Title { get; set; }
 
-    /// <summary>Plaintext, line breaks preserved. No markdown in v1.</summary>
+    /// <summary>Basic Markdown (headings, lists, emphasis, links), line breaks preserved.</summary>
     public string Content { get; set; } = "";
 
     /// <summary>One of <see cref="StickyColors"/>. Stored as string: unknown values from newer clients are kept unchanged.</summary>
@@ -48,8 +49,8 @@ internal sealed class StickyConfiguration : IEntityTypeConfiguration<Sticky>
 public sealed record StickyData(
     Guid Id, DateTime CreatedAt, DateTime ModifiedAt, DateTime? DeletedAt, long Version,
     [property: System.ComponentModel.Description("Context the post-it belongs to.")] Guid ContextId,
-    string? Title,
-    [property: System.ComponentModel.Description("Plaintext, line breaks preserved.")] string Content,
+    [property: System.ComponentModel.Description("Legacy, current clients write null. If set, show it as a level-1 heading above content; current clients move it into content on the next edit.")] string? Title,
+    [property: System.ComponentModel.Description("Basic Markdown (headings, lists, checkboxes, bold, italic, strikethrough, code, links), line breaks preserved.")] string Content,
     [property: System.ComponentModel.Description("yellow, green, blue, pink, purple, orange, gray. Unknown values must be preserved and displayed as yellow.")] string Color,
     bool Pinned,
     [property: System.ComponentModel.Description("Ascending manual order.")] double Position) : SyncDataBase(Id, CreatedAt, ModifiedAt, DeletedAt, Version);

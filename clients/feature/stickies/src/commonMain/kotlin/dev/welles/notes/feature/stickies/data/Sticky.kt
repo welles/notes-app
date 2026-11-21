@@ -74,13 +74,17 @@ interface StickyDao {
 data class Sticky(
     val id: String,
     val contextId: String,
+    /** Legacy (older versions); see [StickyText]. Use [text] for display and editing. */
     val title: String?,
     val content: String,
     val color: String,
     val pinned: Boolean,
     val position: Double,
     val deleted: Boolean,
-)
+) {
+    /** Markdown as shown and edited, including a legacy title as heading. */
+    val text: String get() = StickyText.combine(title, content)
+}
 
 fun StickyEntity.toModel() = Sticky(id, contextId, title, content, color, pinned, position, deletedAt != null)
 
@@ -114,5 +118,12 @@ class StickyHandler(private val dao: StickyDao) : LocalEntityHandler {
 
     override suspend fun idsInContext(contextId: String) = dao.idsInContext(contextId)
     override suspend fun deleteAllExcept(keep: List<String>) = dao.deleteAllExcept(keep)
-    override fun export(data: JsonObject) = CaptureContent(data.str("title"), data.str("content") ?: "")
+    /** A leading heading becomes the title for modules that have one. */
+    override fun export(data: JsonObject): CaptureContent {
+        val title = data.str("title")
+        val content = data.str("content") ?: ""
+        if (!title.isNullOrEmpty()) return CaptureContent(title, content)
+        val (heading, rest) = StickyText.splitHeading(content)
+        return CaptureContent(heading, rest)
+    }
 }

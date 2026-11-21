@@ -7,7 +7,14 @@ using Notes.Core.Sync;
 namespace Notes.Modules.Stickies;
 
 /// <summary>Changes to a post-it. All fields are optional; only set ones are sent (merge semantics).</summary>
-public sealed record StickyPatch(string? Title = null, bool ClearTitle = false, string? Content = null, string? Color = null, bool? Pinned = null);
+public sealed record StickyPatch(string? Content = null, string? Color = null, bool? Pinned = null, bool ClearTitle = false)
+{
+    /// <summary>Sets the text as edited (see <see cref="StickyText.Of"/>); a legacy title is moved into it.</summary>
+    public static StickyPatch Text(Sticky current, string text) =>
+        current.Title is not null ? new(Content: text, ClearTitle: true)
+        : text != current.Content ? new(Content: text)
+        : new();
+}
 
 /// <summary>
 /// Post-it operations for the web UI. Every write is a push through the generic <see cref="SyncService"/>,
@@ -34,9 +41,9 @@ public sealed class StickyService(
         return await db.Set<Sticky>().AsNoTracking().FirstOrDefaultAsync(s => s.Id == id, ct);
     }
 
-    public async Task<Guid> CreateAsync(Guid contextId, string? title, string content, string? color = null, CancellationToken ct = default)
+    public async Task<Guid> CreateAsync(Guid contextId, string content, string? color = null, CancellationToken ct = default)
     {
-        var reference = await actions.CaptureAsync(new CaptureContent(title, content), contextId, StickiesModule.ModuleKey, ct);
+        var reference = await actions.CaptureAsync(new CaptureContent(null, content), contextId, StickiesModule.ModuleKey, ct);
         if (color is not null && color != StickyColors.Default)
         {
             var created = await GetAsync(reference.Id, ct);
@@ -49,7 +56,7 @@ public sealed class StickyService(
     public async Task<PushEntryResult> UpdateAsync(Guid id, long baseVersion, StickyPatch patch, CancellationToken ct = default)
     {
         var data = new JsonObject();
-        if (patch.Title is not null || patch.ClearTitle) data["title"] = patch.ClearTitle ? null : patch.Title;
+        if (patch.ClearTitle) data["title"] = null;
         if (patch.Content is not null) data["content"] = patch.Content;
         if (patch.Color is not null) data["color"] = patch.Color;
         if (patch.Pinned is not null) data["pinned"] = patch.Pinned;

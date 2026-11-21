@@ -1,29 +1,27 @@
-<div class="notes-sticky-card" style="background:@NoteColors.Background(Sticky.Color);color:@NoteColors.NoteText" @onclick="OnOpen">
-    @if (!string.IsNullOrEmpty(Sticky.Title))
-    {
-        <div class="notes-sticky-card-title">@Sticky.Title</div>
-    }
-    <div class="notes-sticky-card-content">@Sticky.Content</div>
-    <div class="notes-sticky-card-actions" @onclick:stopPropagation="true">
-        <MudIconButton Size="Size.Small" Icon="@(Sticky.Pinned ? Icons.Material.Filled.PushPin : Icons.Material.Outlined.PushPin)"
-                       Style="@($"color:{NoteColors.NoteText}")" title="@(Sticky.Pinned ? "Lösen" : "Anpinnen")" OnClick="OnTogglePin" />
-        <MudMenu Icon="@Icons.Material.Outlined.Palette" Size="Size.Small" Dense="true" title="Farbe" Style="@($"color:{NoteColors.NoteText}")">
-            <div class="d-flex flex-wrap gap-1 pa-2" style="max-width:150px">
-                @foreach (var c in StickyColors.All)
+<div class="notes-sticky" style="--note:@NoteColors.Background(Sticky.Color)">
+    <div class="notes-sticky-card" style="color:@NoteColors.NoteText" @onclick="OnOpen">
+        <div class="notes-sticky-card-content md">@((MarkupString)Markdown.ToHtml(StickyText.Of(Sticky)))</div>
+        <div class="notes-sticky-card-actions" @onclick:stopPropagation="true">
+            <MudIconButton Size="Size.Small" Icon="@(Sticky.Pinned ? Icons.Material.Filled.PushPin : Icons.Material.Outlined.PushPin)"
+                           Style="@($"color:{NoteColors.NoteText}")" title="@(Sticky.Pinned ? "Lösen" : "Anpinnen")" OnClick="OnTogglePin" />
+            <MudMenu Icon="@Icons.Material.Outlined.Palette" Size="Size.Small" Dense="true" title="Farbe" Style="@($"color:{NoteColors.NoteText}")">
+                <div class="d-flex flex-wrap gap-1 pa-2" style="max-width:150px">
+                    @foreach (var c in StickyColors.All)
+                    {
+                        <button type="button" title="@NoteColors.Label(c)" class="notes-swatch @(c == Sticky.Color ? "selected" : "")"
+                                style="background:@NoteColors.Background(c)" @onclick="() => OnColor.InvokeAsync(c)"></button>
+                    }
+                </div>
+            </MudMenu>
+            <MudMenu Icon="@Icons.Material.Filled.MoreVert" Size="Size.Small" Dense="true" Style="@($"color:{NoteColors.NoteText}")">
+                <MudMenuItem Icon="@Icons.Material.Outlined.DriveFileMove" OnClick="OnMove">In Kontext verschieben …</MudMenuItem>
+                @foreach (var target in ConvertTargets)
                 {
-                    <button type="button" title="@NoteColors.Label(c)" class="notes-swatch @(c == Sticky.Color ? "selected" : "")"
-                            style="background:@NoteColors.Background(c)" @onclick="() => OnColor.InvokeAsync(c)"></button>
+                    <MudMenuItem Icon="@Icons.Material.Outlined.Transform" OnClick="() => OnConvert.InvokeAsync(target)">Umwandeln in @target.DisplayName …</MudMenuItem>
                 }
-            </div>
-        </MudMenu>
-        <MudMenu Icon="@Icons.Material.Filled.MoreVert" Size="Size.Small" Dense="true" Style="@($"color:{NoteColors.NoteText}")">
-            <MudMenuItem Icon="@Icons.Material.Outlined.DriveFileMove" OnClick="OnMove">In Kontext verschieben …</MudMenuItem>
-            @foreach (var target in ConvertTargets)
-            {
-                <MudMenuItem Icon="@Icons.Material.Outlined.Transform" OnClick="() => OnConvert.InvokeAsync(target)">Umwandeln in @target.DisplayName …</MudMenuItem>
-            }
-            <MudMenuItem Icon="@Icons.Material.Outlined.Delete" OnClick="OnDelete">Löschen</MudMenuItem>
-        </MudMenu>
+                <MudMenuItem Icon="@Icons.Material.Outlined.Delete" OnClick="OnDelete">Löschen</MudMenuItem>
+            </MudMenu>
+        </div>
     </div>
 </div>
 

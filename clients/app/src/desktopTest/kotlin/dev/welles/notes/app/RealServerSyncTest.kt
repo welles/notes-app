@@ -32,23 +32,24 @@ class RealServerSyncTest {
             laptop.contexts.ensureDefaultContext()
             // Own context per run, so repeated runs against the same server don't interfere.
             val ctx = phone.contexts.create("e2e-${dev.welles.notes.core.model.Ids.newId()}")
-            val id = phone.stickies.create(ctx, "E2E", "original")
+            val id = phone.stickies.create(ctx, "# E2E\n\noriginal")
             engine(phone).sync(api)
             engine(laptop).sync(api)
-            assertEquals("original", laptop.stickies.get(id)!!.content)
+            assertEquals("# E2E\n\noriginal", laptop.stickies.get(id)!!.content)
 
             // Both edit "offline", the laptop later.
-            phone.stickies.update(id, "E2E", "vom Handy", "yellow", false)
+            phone.stickies.update(id, "# E2E\n\nvom Handy", "yellow", false)
             laptop.clock.now = phone.clock.now + kotlin.time.Duration.parse("1m")
-            laptop.stickies.update(id, "E2E", "vom Laptop", "blue", false)
+            laptop.stickies.update(id, "# E2E\n\nvom Laptop", "blue", false)
             engine(phone).sync(api)
             engine(laptop).sync(api)
             engine(phone).sync(api)
 
             for (t in listOf(phone, laptop)) {
                 val list = t.stickies.observe(ctx).first()
-                assertEquals("vom Laptop", list.single { it.id == id }.content)
-                assertTrue(list.any { it.content == "vom Handy" && it.title == "Konflikt: E2E" }, "conflict copy")
+                assertEquals("# E2E\n\nvom Laptop", list.single { it.id == id }.content)
+                // Current servers mark the heading ("# Konflikt: E2E"), older ones set the legacy title "Konflikt".
+                assertTrue(list.any { it.text.startsWith("# Konflikt") && it.text.endsWith("vom Handy") }, "conflict copy")
                 assertTrue(t.db.outboxDao().all().isEmpty())
             }
             assertTrue(phone.contexts.contexts.first().any { it.id == ctx } && Contexts.DEFAULT_ID.isNotEmpty())
