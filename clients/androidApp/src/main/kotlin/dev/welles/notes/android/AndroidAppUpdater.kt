@@ -29,6 +29,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -55,8 +56,11 @@ class AndroidAppUpdater(
 
     private var job: Job? = null
     private var lastCheck = 0L
-    /** The user was sent to "Install unknown apps"; continue when the app is back in the foreground. */
+    /** The user was sent to "Install unknown apps"; on the next return to the foreground continue (if granted) or not at all. */
     @Volatile private var installAfterPermission = false
+    /** Session handed to the installer and its confirmation (relaunched if it could not be shown or was left with Home). */
+    @Volatile private var sessionId: Int? = null
+    @Volatile private var confirmation: Intent? = null
 
     init {
         // APKs of earlier updates (installed or abandoned)
@@ -67,12 +71,26 @@ class AndroidAppUpdater(
 
     override fun checkIfDue() {
         val s = _state.value
-        if (s is UpdateState.Downloading || s is UpdateState.Installing) return
-        if (installAfterPermission && canInstall()) return install()
+        // Back in the foreground: show a confirmation that was blocked in the background or left with Home.
+        // Delayed: after "Abbrechen" in the dialog the app may be back before the ABORTED status arrives.
+        if (s is UpdateState.Installing) {
+            val pending = confirmation ?: return
+            scope.launch {
+                delay(1_500)
+                if (_state.value === s && confirmation === pending) showConfirmation(pending)
+            }
+            return
+        }
+        if (s is UpdateState.Downloading) return
+        if (installAfterPermission) {
+            installAfterPermission = false
+            if (s is UpdateState.NeedsPermission && canInstall()) return install()
+        }
         if (System.currentTimeMillis() - lastCheck >= CHECK_INTERVAL_MS) launch { checkNow() }
     }
 
     override fun install() {
+        if (_state.value is UpdateState.Installing) return resumeInstallation()
         val release = when (val s = _state.value) {
             is UpdateState.Available -> s.release
             is UpdateState.NeedsPermission -> s.release
@@ -104,14 +122,36 @@ class AndroidAppUpdater(
         }
     }
 
+    /** Shows the confirmation again, or gives up a session that never asked for one. */
+    private fun resumeInstallation() {
+        val release = (_state.value as? UpdateState.Installing)?.release ?: return
+        confirmation?.let { return showConfirmation(it) }
+        sessionId?.let { id -> runCatching { context.packageManager.packageInstaller.abandonSession(id) } }
+        sessionId = null
+        _state.value = UpdateState.Available(release)
+    }
+
+    /** The installer needs a confirmation (from [UpdateInstallReceiver]). Blocked while Notes is in the background; [checkIfDue] retries. */
+    internal fun onConfirmationNeeded(intent: Intent) {
+        confirmation = intent
+        showConfirmation(intent)
+    }
+
+    private fun showConfirmation(intent: Intent) {
+        runCatching { context.startActivity(Intent(intent).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+            .onFailure { Log.w(TAG, "Confirmation not shown", it) }
+    }
+
     /** Result of the installation session (from [UpdateInstallReceiver]). */
     internal fun onInstallResult(status: Int, message: String?) {
+        sessionId = null
+        confirmation = null
         val release = (_state.value as? UpdateState.Installing)?.release ?: return
         _state.value = when (status) {
             PackageInstaller.STATUS_SUCCESS -> UpdateState.UpToDate
             PackageInstaller.STATUS_FAILURE_ABORTED -> UpdateState.Available(release)
-            PackageInstaller.STATUS_FAILURE_CONFLICT, PackageInstaller.STATUS_FAILURE_INCOMPATIBLE ->
-                UpdateState.Failed("Signatur passt nicht zur installierten App", release)
+            PackageInstaller.STATUS_FAILURE_CONFLICT -> UpdateState.Failed("Signatur passt nicht zur installierten App", release)
+            PackageInstaller.STATUS_FAILURE_INCOMPATIBLE -> UpdateState.Failed(message ?: "Nicht kompatibel mit diesem Gerät", release)
             else -> UpdateState.Failed(message ?: "Installation fehlgeschlagen ($status)", release)
         }
     }
@@ -190,6 +230,8 @@ class AndroidAppUpdater(
             if (Build.VERSION.SDK_INT >= 33) setPackageSource(PackageInstaller.PACKAGE_SOURCE_DOWNLOADED_FILE)
         }
         val id = installer.createSession(params)
+        sessionId = id
+        confirmation = null
         try {
             installer.openSession(id).use { session ->
                 session.openWrite("notes.apk", 0, file.length()).use { out ->
@@ -203,6 +245,7 @@ class AndroidAppUpdater(
             }
         } catch (e: Exception) {
             runCatching { installer.abandonSession(id) }
+            sessionId = null
             throw e
         }
     }
@@ -218,15 +261,14 @@ class AndroidAppUpdater(
 class UpdateInstallReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val status = intent.getIntExtra(PackageInstaller.EXTRA_STATUS, PackageInstaller.STATUS_FAILURE)
+        val updater = GlobalContext.getOrNull()?.getOrNull<AppUpdater>() as? AndroidAppUpdater
         if (status == PackageInstaller.STATUS_PENDING_USER_ACTION) {
             val confirm = if (Build.VERSION.SDK_INT >= 33) intent.getParcelableExtra(Intent.EXTRA_INTENT, Intent::class.java)
             else @Suppress("DEPRECATION") intent.getParcelableExtra(Intent.EXTRA_INTENT)
             // Not exported: the intent comes from the system installer via our own PendingIntent.
-            @Suppress("UnsafeIntentLaunch")
-            confirm?.let { context.startActivity(it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+            if (confirm != null) updater?.onConfirmationNeeded(confirm)
             return
         }
-        val updater = GlobalContext.getOrNull()?.getOrNull<AppUpdater>() as? AndroidAppUpdater
         updater?.onInstallResult(status, intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE))
     }
 }
