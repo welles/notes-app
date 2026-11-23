@@ -70,6 +70,10 @@ fun notesModules(platform: Module, database: Module, extra: List<Module> = empty
 /** Thrown when the local database was written by a newer app version (downgrade is not supported). */
 class NewerDatabaseException(val found: Int) : Exception("Database version $found is newer than ${NotesDatabase.VERSION}")
 
+/** The [NewerDatabaseException] behind a startup error; Koin wraps exceptions from definitions. */
+fun Throwable.newerDatabase(): NewerDatabaseException? =
+    generateSequence(this) { it.cause }.filterIsInstance<NewerDatabaseException>().firstOrNull()
+
 /**
  * Checks the schema version before Room opens the file, so an older app never crashes on (or wipes) a newer database.
  */
@@ -106,9 +110,10 @@ private fun StartupErrorScreen(error: Throwable) {
     val koin = getKoin()
     Surface(Modifier.fillMaxSize()) {
         Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            if (error is NewerDatabaseException) {
+            val newer = error.newerDatabase()
+            if (newer != null) {
                 Text("Update nötig", style = MaterialTheme.typography.headlineSmall)
-                Text("Datenbank v${error.found} > v${NotesDatabase.VERSION}")
+                Text("Datenbank v${newer.found} > v${NotesDatabase.VERSION}")
                 // Self-update (Android release builds), if available
                 val update = remember { koin.getOrNull<AppUpdateSection>() }
                 update?.Content(NoNavigation)
