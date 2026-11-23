@@ -62,6 +62,8 @@ class AndroidAppUpdater(
     @Volatile private var sessionId: Int? = null
     @Volatile private var confirmation: Intent? = null
     @Volatile private var committedAt = 0L
+    /** Verified APK of [UpdateState.Ready]. */
+    @Volatile private var readyFile: File? = null
 
     init {
         // APKs and installer sessions of earlier processes (installed, abandoned, or the process died meanwhile)
@@ -86,7 +88,7 @@ class AndroidAppUpdater(
             }
             return
         }
-        if (s is UpdateState.Downloading) return
+        if (s is UpdateState.Downloading || s is UpdateState.Ready) return
         if (installAfterPermission) {
             installAfterPermission = false
             if (s is UpdateState.NeedsPermission && canInstall()) return install()
@@ -96,6 +98,11 @@ class AndroidAppUpdater(
 
     override fun install() {
         if (_state.value is UpdateState.Installing) return resumeInstallation()
+        (_state.value as? UpdateState.Ready)?.let { ready ->
+            val file = readyFile
+            if (file != null && file.exists()) return installDownloaded(ready.release, file)
+            _state.value = UpdateState.Available(ready.release)
+        }
         val release = when (val s = _state.value) {
             is UpdateState.Available -> s.release
             is UpdateState.NeedsPermission -> s.release
@@ -116,15 +123,28 @@ class AndroidAppUpdater(
         installAfterPermission = false
         launch {
             try {
-                val file = download(release)
-                _state.value = UpdateState.Installing(release)
-                commit(file)
+                // Not installed right away: replacing the package kills the app, possibly mid-edit.
+                // The settings section installs at once if it is on screen (see AppUpdateSection).
+                readyFile = download(release)
+                _state.value = UpdateState.Ready(release)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
                 Log.w(TAG, "Update failed", e)
                 _state.value = UpdateState.Failed(e.message ?: e.toString(), release)
             }
+        }
+    }
+
+    private fun installDownloaded(release: AppRelease, file: File) = launch {
+        try {
+            _state.value = UpdateState.Installing(release)
+            commit(file)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.w(TAG, "Install failed", e)
+            _state.value = UpdateState.Failed(e.message ?: e.toString(), release)
         }
     }
 
@@ -184,7 +204,8 @@ class AndroidAppUpdater(
     /** Only a successful check counts for the hourly interval; offline, the next foreground tries again. */
     private suspend fun checkNow(manual: Boolean) {
         val previous = _state.value
-        _state.value = UpdateState.Checking
+        // An automatic check keeps a known update visible while it runs.
+        if (manual || releaseOf(previous) == null) _state.value = UpdateState.Checking
         _state.value = try {
             val release = AppReleases.latest(http)
             lastCheck = System.currentTimeMillis()
@@ -304,6 +325,7 @@ private fun releaseOf(state: UpdateState): AppRelease? = when (state) {
     is UpdateState.Available -> state.release
     is UpdateState.NeedsPermission -> state.release
     is UpdateState.Downloading -> state.release
+    is UpdateState.Ready -> state.release
     is UpdateState.Installing -> state.release
     is UpdateState.Failed -> state.release
     else -> null

@@ -67,6 +67,8 @@ sealed interface UpdateState {
     data class NeedsPermission(val release: AppRelease) : UpdateState
     /** [progress] 0..1, null while the size is unknown. */
     data class Downloading(val release: AppRelease, val progress: Float?) : UpdateState
+    /** Downloaded and verified; installing ends the app, so it starts only on request (or with the settings section on screen). */
+    data class Ready(val release: AppRelease) : UpdateState
     /** Handed to the system installer, which asks for confirmation. */
     data class Installing(val release: AppRelease) : UpdateState
     data class Failed(val message: String, val release: AppRelease? = null) : UpdateState
@@ -83,6 +85,6 @@ interface AppUpdater {
     /** Checks if the last check is long enough ago (app comes to the foreground). */
     fun checkIfDue()
 
-    /** Downloads the available release and starts the installation. */
+    /** Downloads the available release ([UpdateState.Ready]); in that state: starts the installation. */
     fun install()
 }
