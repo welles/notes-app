@@ -25,6 +25,7 @@ val stickiesAndroidModule = module {
 @OptIn(FlowPreview::class)
 private fun StickyWidgetUpdater.watch(dao: StickyDao, settings: LocalSettingsDao) {
     CoroutineScope(SupervisorJob() + Dispatchers.Default).launch {
+        runCatching { removeOrphanedSettings(settings) }
         combine(dao.observeChangeMarker(), settings.observe("activeContextId")) { a, b -> a to b }
             .drop(1)
             .debounce(500.milliseconds)

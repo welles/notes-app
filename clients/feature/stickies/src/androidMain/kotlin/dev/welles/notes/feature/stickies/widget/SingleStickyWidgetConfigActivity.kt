@@ -1,14 +1,15 @@
 package dev.welles.notes.feature.stickies.widget
 
-import android.appwidget.AppWidgetManager
-import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -17,6 +18,7 @@ import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
@@ -27,12 +29,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.glance.appwidget.GlanceAppWidgetManager
 import dev.welles.notes.core.data.ContextRepository
 import dev.welles.notes.core.data.LocalSettingsDao
 import dev.welles.notes.core.ui.NoteColors
@@ -53,19 +55,26 @@ class SingleStickyWidgetConfigActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
-        val appWidgetId = intent?.extras?.getInt(AppWidgetManager.EXTRA_APPWIDGET_ID, AppWidgetManager.INVALID_APPWIDGET_ID)
-            ?: AppWidgetManager.INVALID_APPWIDGET_ID
-        setResult(RESULT_CANCELED, Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId))
-        if (appWidgetId == AppWidgetManager.INVALID_APPWIDGET_ID) return finish()
+        val appWidgetId = configuredWidgetId(SingleStickyWidgetReceiver::class.java) ?: return finish()
+        // When placing, a post-it must be chosen; "back" cancels the placement.
+        setWidgetResult(appWidgetId, ok = false)
 
         setContent {
             NotesTheme {
                 var stickies by remember { mutableStateOf<List<Sticky>?>(null) }
-                var transparent by remember { mutableStateOf(false) }
+                var background by rememberSaveable { mutableStateOf<WidgetBackground?>(null) }
+                /** The post-it shown so far; null when placing. */
+                var currentId by remember { mutableStateOf<String?>(null) }
                 val scope = rememberCoroutineScope()
                 LaunchedEffect(Unit) {
-                    transparent = WidgetConfig.isTransparent(settings, appWidgetId)
+                    currentId = settings.get(WidgetConfig.key(appWidgetId))
+                    if (background == null) background = WidgetConfig.background(settings, appWidgetId)
                     stickies = repository.observe(contexts.activeIdOrDefault()).first()
+                }
+                fun save(stickyId: String?) = scope.launch {
+                    stickyId?.let { saveWidgetSticky(settings, appWidgetId, it) }
+                    background?.let { WidgetConfig.setBackground(settings, appWidgetId, it) }
+                    finishConfiguration(appWidgetId, SingleStickyWidget())
                 }
                 Surface(Modifier.fillMaxSize()) {
                     LazyColumn(
@@ -74,23 +83,26 @@ class SingleStickyWidgetConfigActivity : ComponentActivity() {
                         verticalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
                         item { Text("Post-it", style = MaterialTheme.typography.titleLarge) }
-                        item { TransparentBackgroundSwitch(transparent) { transparent = it } }
+                        background?.let { current -> item { WidgetBackgroundChoice(current) { background = it } } }
+                        if (currentId != null) {
+                            // Reconfiguring: change only the background and keep the post-it.
+                            item {
+                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                                    Button(onClick = { save(null) }, enabled = background != null) { Text("Fertig") }
+                                }
+                            }
+                        }
+                        if (stickies?.isNotEmpty() == true) {
+                            item { Text(if (currentId != null) "Anderes Post-it wählen" else "Post-it wählen", style = MaterialTheme.typography.titleSmall) }
+                        }
                         if (stickies?.isEmpty() == true) item { Text("Keine Post-its") }
                         items(stickies.orEmpty(), key = { it.id }) { s ->
                             Card(
                                 colors = CardDefaults.cardColors(containerColor = NoteColors.background(s.color), contentColor = NoteColors.text),
-                                modifier = Modifier.fillMaxWidth().clickable {
-                                    scope.launch {
-                                        saveWidgetSticky(settings, appWidgetId, s.id)
-                                        WidgetConfig.setTransparent(settings, appWidgetId, transparent)
-                                        val glanceId = GlanceAppWidgetManager(this@SingleStickyWidgetConfigActivity).getGlanceIdBy(appWidgetId)
-                                        SingleStickyWidget().update(this@SingleStickyWidgetConfigActivity, glanceId)
-                                        setResult(RESULT_OK, Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId))
-                                        finish()
-                                    }
-                                },
+                                border = if (s.id == currentId) BorderStroke(3.dp, MaterialTheme.colorScheme.primary) else null,
+                                modifier = Modifier.fillMaxWidth().clickable(enabled = background != null) { save(s.id) },
                             ) {
-                                androidx.compose.foundation.layout.Column(Modifier.padding(12.dp)) {
+                                Column(Modifier.padding(12.dp)) {
                                     val (heading, body) = s.preview()
                                     heading?.let { Text(it, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis) }
                                     if (body.isNotEmpty()) Text(body, maxLines = 4, overflow = TextOverflow.Ellipsis)
