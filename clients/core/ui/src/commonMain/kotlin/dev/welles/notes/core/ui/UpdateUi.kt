@@ -14,7 +14,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import dev.welles.notes.core.sync.AppUpdater
@@ -30,6 +34,7 @@ class AppUpdateIndicator(private val updater: AppUpdater) : TopBarAction {
             is UpdateState.Available -> s.release
             is UpdateState.NeedsPermission -> s.release
             is UpdateState.Downloading -> s.release
+            is UpdateState.Ready -> s.release
             is UpdateState.Installing -> s.release
             is UpdateState.Failed -> s.release
             else -> null
@@ -48,6 +53,14 @@ class AppUpdateSection(private val updater: AppUpdater) : SettingsSection {
     @Composable
     override fun Content(navigator: Navigator) {
         val state by updater.state.collectAsStateCompat()
+        // Download finished while this section is on screen: install right away (the user is waiting here).
+        // Otherwise [UpdateState.Ready] waits for "Installieren", so the app is not ended in the middle of an edit.
+        var sawDownload by remember { mutableStateOf(false) }
+        LaunchedEffect(state) {
+            if (state is UpdateState.Downloading) sawDownload = true
+            else if (state is UpdateState.Ready && sawDownload) { sawDownload = false; updater.install() }
+            else sawDownload = false
+        }
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("App-Version", style = MaterialTheme.typography.titleMedium)
             Text("Installiert: ${updater.currentVersion}", style = MaterialTheme.typography.bodyMedium)
@@ -63,6 +76,7 @@ class AppUpdateSection(private val updater: AppUpdater) : SettingsSection {
                     if (progress != null) LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth())
                     else LinearProgressIndicator(Modifier.fillMaxWidth())
                 }
+                is UpdateState.Ready -> Text("Version ${s.release.version} bereit", color = MaterialTheme.colorScheme.primary)
                 is UpdateState.Installing -> Text("Installiere Version ${s.release.version} …", style = MaterialTheme.typography.bodySmall)
                 is UpdateState.Failed -> Text("Fehler: ${s.message}", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
             }
@@ -70,6 +84,7 @@ class AppUpdateSection(private val updater: AppUpdater) : SettingsSection {
                 when (val s = state) {
                     is UpdateState.Available -> Button(onClick = updater::install) { Text("Aktualisieren") }
                     is UpdateState.NeedsPermission -> Button(onClick = updater::install) { Text("Erlauben") }
+                    is UpdateState.Ready -> Button(onClick = updater::install) { Text("Installieren") }
                     is UpdateState.Installing -> Button(onClick = updater::install) { Text("Fortsetzen") }
                     is UpdateState.Failed -> if (s.release != null) Button(onClick = updater::install) { Text("Erneut versuchen") }
                     else -> {}

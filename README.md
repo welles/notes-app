@@ -217,7 +217,7 @@ Siehe [Versionen und Releases](#versionen-und-releases). Die Action baut zum Tag
 
 ### Update aus der App
 
-Release-Builds suchen selbst nach Updates: beim Wechsel in den Vordergrund (höchstens einmal pro Stunde) und über *Einstellungen → App-Version → Nach Updates suchen*. Gibt es ein neueres Release, erscheint ein Download-Symbol in der App-Leiste; *Aktualisieren* lädt `notes-N.apk`, prüft Größe, SHA-256 (aus dem GitHub Release) und Paketnamen und startet die Installation. Android prüft die Signatur und fragt beim ersten Mal nach der Berechtigung „Unbekannte Apps installieren“ für Notes und danach nach einer Bestätigung. Ab Android 12 entfällt die Bestätigung, sobald Notes die installierte Version selbst installiert hat. Debug-Builds haben die Funktion nicht (anderer Schlüssel).
+Release-Builds suchen selbst nach Updates: beim Wechsel in den Vordergrund (höchstens einmal pro Stunde) und über *Einstellungen → App-Version → Nach Updates suchen*. Gibt es ein neueres Release, erscheint ein Download-Symbol in der App-Leiste; *Aktualisieren* lädt `notes-N.apk` und prüft Größe, SHA-256 (aus dem GitHub Release) und Paketnamen. Bleibt man dabei in den Einstellungen, startet die Installation sofort, sonst erst mit *Installieren* – das Update beendet die App, und ein gerade offenes Post-it soll nicht verloren gehen. Android prüft die Signatur und fragt beim ersten Mal nach der Berechtigung „Unbekannte Apps installieren“ für Notes. Bis Android 11 folgt eine Bestätigung; ab Android 12 installiert Notes sich ohne Rückfrage und wird danach einfach beendet. Debug-Builds haben die Funktion nicht (anderer Schlüssel).
 
 ## Konfiguration (Server)
 
