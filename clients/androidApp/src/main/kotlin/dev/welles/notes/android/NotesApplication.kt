@@ -43,20 +43,24 @@ class NotesApplication : Application() {
             androidContext(this@NotesApplication)
             modules(notesModules(androidPlatformModule(this@NotesApplication), androidDatabaseModule(this@NotesApplication), extraModules()))
         }
+        // Self-update independent of the database: also the way out of "Update nötig".
+        GlobalContext.get().getOrNull<AppUpdater>()?.let { updater ->
+            ProcessLifecycleOwner.get().lifecycle.addObserver(object : DefaultLifecycleObserver {
+                override fun onStart(owner: LifecycleOwner) = updater.checkIfDue()
+            })
+        }
         // Open the database now so a newer schema is reported at start instead of crashing later.
         startupError = runCatching { runBlocking { GlobalContext.get().get<NotesDatabase>().contextDao().all() } }.exceptionOrNull()
         if (startupError != null) return
 
         val sync = GlobalContext.get().get<SyncController>()
         val live = GlobalContext.get().get<LiveSync>()
-        val updater = GlobalContext.get().getOrNull<AppUpdater>()
         SyncWorker.schedule(this)
         // Foreground: sync now and keep the live connection; background: only WorkManager.
         ProcessLifecycleOwner.get().lifecycle.addObserver(object : DefaultLifecycleObserver {
             override fun onStart(owner: LifecycleOwner) {
                 sync.requestSync()
                 live.start()
-                updater?.checkIfDue()
             }
             override fun onStop(owner: LifecycleOwner) = live.stop()
         })

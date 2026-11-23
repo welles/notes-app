@@ -25,14 +25,18 @@ class AppUpdateIndicator(private val updater: AppUpdater) : TopBarAction {
     @Composable
     override fun Content(navigator: Navigator) {
         val state by updater.state.collectAsStateCompat()
-        val release = when (val s = state) {
+        val s = state
+        val release = when (s) {
             is UpdateState.Available -> s.release
             is UpdateState.NeedsPermission -> s.release
             is UpdateState.Downloading -> s.release
+            is UpdateState.Installing -> s.release
+            is UpdateState.Failed -> s.release
             else -> null
         } ?: return
         IconButton(onClick = { navigator.navigate(ROUTE_SETTINGS) }) {
-            Icon(Icons.Filled.Download, "Version ${release.version} verfügbar", tint = MaterialTheme.colorScheme.primary)
+            if (s is UpdateState.Failed) Icon(Icons.Filled.Download, "Update fehlgeschlagen", tint = MaterialTheme.colorScheme.error)
+            else Icon(Icons.Filled.Download, "Version ${release.version} verfügbar", tint = MaterialTheme.colorScheme.primary)
         }
     }
 }
