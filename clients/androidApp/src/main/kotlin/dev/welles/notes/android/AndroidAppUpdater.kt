@@ -5,7 +5,10 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageInstaller
+import androidx.core.content.edit
 import androidx.core.net.toUri
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.ProcessLifecycleOwner
 import android.os.Build
 import android.provider.Settings
 import android.util.Log
@@ -29,7 +32,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -56,11 +58,20 @@ class AndroidAppUpdater(
 
     private var job: Job? = null
     private var lastCheck = 0L
-    /** The user was sent to "Install unknown apps"; on the next return to the foreground continue (if granted) or not at all. */
-    @Volatile private var installAfterPermission = false
+    /**
+     * The user was sent to "Install unknown apps" for this release version; on the next return to the foreground
+     * continue (if granted) or not at all. Persisted: Android may restart the process when the permission changes.
+     */
+    private val prefs = context.getSharedPreferences("updates", Context.MODE_PRIVATE)
+    /** Version to install right after the next successful check (permission granted in a previous process). */
+    @Volatile private var resumeVersion: Int? = null
+    /** Whether [job] is a check, which an install request may cancel. */
+    @Volatile private var jobIsCheck = false
     /** Session handed to the installer and its confirmation (relaunched if it could not be shown or was left with Home). */
     @Volatile private var sessionId: Int? = null
     @Volatile private var confirmation: Intent? = null
+    /** The confirmation could not be shown (Notes was in the background); shown on the next return. */
+    @Volatile private var confirmationMissed = false
     @Volatile private var committedAt = 0L
     /** Verified APK of [UpdateState.Ready]. */
     @Volatile private var readyFile: File? = null
@@ -74,26 +85,31 @@ class AndroidAppUpdater(
         }
     }
 
-    override fun check() = launch { checkNow(manual = true) }
+    override fun check() = launch(check = true) { checkNow(manual = true) }
 
     override fun checkIfDue() {
         val s = _state.value
-        // Back in the foreground: show a confirmation that was blocked in the background or left with Home.
-        // Delayed: after "Abbrechen" in the dialog the app may be back before the ABORTED status arrives.
+        // Back in the foreground: show a confirmation that was blocked in the background. One that was shown
+        // (accepted, or left with Home) is not repeated; "Fortsetzen" shows it again.
         if (s is UpdateState.Installing) {
             val pending = confirmation ?: return
-            scope.launch {
-                delay(1_500)
-                if (_state.value === s && confirmation === pending) showConfirmation(pending)
-            }
+            if (!confirmationMissed) return
+            confirmationMissed = false
+            showConfirmation(pending)
             return
         }
         if (s is UpdateState.Downloading || s is UpdateState.Ready) return
-        if (installAfterPermission) {
-            installAfterPermission = false
-            if (s is UpdateState.NeedsPermission && canInstall()) return install()
+        val pendingVersion = prefs.getInt(KEY_AFTER_PERMISSION, 0)
+        if (pendingVersion != 0) {
+            prefs.edit { remove(KEY_AFTER_PERMISSION) }
+            if (canInstall()) {
+                if (s is UpdateState.NeedsPermission && s.release.version == pendingVersion) return install()
+                // New process (Android restarted it after the grant): continue once the release is known again.
+                resumeVersion = pendingVersion
+                return launch(check = true) { checkNow(manual = false) }
+            }
         }
-        if (System.currentTimeMillis() - lastCheck >= CHECK_INTERVAL_MS) launch { checkNow(manual = false) }
+        if (System.currentTimeMillis() - lastCheck >= CHECK_INTERVAL_MS) launch(check = true) { checkNow(manual = false) }
     }
 
     override fun install() {
@@ -109,18 +125,19 @@ class AndroidAppUpdater(
             is UpdateState.Failed -> s.release
             else -> null
         } ?: return
-        if (job?.isActive == true) return
+        // A running automatic check must not swallow the tap.
+        if (job?.isActive == true) { if (jobIsCheck) job?.cancel() else return }
         if (!canInstall()) {
             // The settings screen may not exist on every device/profile.
             val opened = runCatching {
                 context.startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, "package:${context.packageName}".toUri()).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
             }.isSuccess
-            installAfterPermission = opened
+            if (opened) prefs.edit { putInt(KEY_AFTER_PERMISSION, release.version) }
             _state.value = if (opened) UpdateState.NeedsPermission(release)
             else UpdateState.Failed("Installation unbekannter Apps nicht erlaubt", release)
             return
         }
-        installAfterPermission = false
+        prefs.edit { remove(KEY_AFTER_PERMISSION) }
         launch {
             try {
                 // Not installed right away: replacing the package kills the app, possibly mid-edit.
@@ -151,7 +168,7 @@ class AndroidAppUpdater(
     /** Shows the confirmation again, or gives up a session that never asked for one. */
     private fun resumeInstallation() {
         val release = (_state.value as? UpdateState.Installing)?.release ?: return
-        confirmation?.let { return showConfirmation(it) }
+        confirmation?.let { showConfirmation(it); return }
         // Still copying the APK into the session: leave it alone.
         if (job?.isActive == true) return
         val installer = context.packageManager.packageInstaller
@@ -170,13 +187,14 @@ class AndroidAppUpdater(
     internal fun onConfirmationNeeded(session: Int, intent: Intent) {
         if (session != sessionId) return
         confirmation = intent
-        showConfirmation(intent)
+        val foreground = ProcessLifecycleOwner.get().lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)
+        confirmationMissed = !foreground || !showConfirmation(intent)
     }
 
-    private fun showConfirmation(intent: Intent) {
+    private fun showConfirmation(intent: Intent): Boolean =
         runCatching { context.startActivity(Intent(intent).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
             .onFailure { Log.w(TAG, "Confirmation not shown", it) }
-    }
+            .isSuccess
 
     /** Result of the installation session (from [UpdateInstallReceiver]). */
     internal fun onInstallResult(session: Int, status: Int, message: String?) {
@@ -184,6 +202,7 @@ class AndroidAppUpdater(
         if (session != sessionId) return
         sessionId = null
         confirmation = null
+        confirmationMissed = false
         val release = (_state.value as? UpdateState.Installing)?.release ?: return
         _state.value = when (status) {
             PackageInstaller.STATUS_SUCCESS -> UpdateState.UpToDate
@@ -194,8 +213,9 @@ class AndroidAppUpdater(
         }
     }
 
-    private fun launch(block: suspend () -> Unit) {
+    private fun launch(check: Boolean = false, block: suspend () -> Unit) {
         if (job?.isActive == true) return
+        jobIsCheck = check
         job = scope.launch { block() }
     }
 
@@ -209,7 +229,13 @@ class AndroidAppUpdater(
         _state.value = try {
             val release = AppReleases.latest(http)
             lastCheck = System.currentTimeMillis()
-            if (release != null && release.version > versionCode) UpdateState.Available(release) else UpdateState.UpToDate
+            val ready = previous as? UpdateState.Ready
+            when {
+                release == null || release.version <= versionCode -> UpdateState.UpToDate
+                // Already downloaded and verified: keep it instead of offering the download again.
+                ready != null && ready.release.version == release.version && readyFile?.exists() == true -> ready
+                else -> UpdateState.Available(release)
+            }
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -220,6 +246,19 @@ class AndroidAppUpdater(
                 manual -> UpdateState.Failed(e.message ?: e.toString())
                 else -> previous
             }
+        }
+        resumeAfterPermission()
+    }
+
+    /** After a successful check: continue an install the permission screen interrupted in an earlier process. */
+    private fun resumeAfterPermission() {
+        val version = resumeVersion ?: return
+        resumeVersion = null
+        // Only right after the return from the permission screen, not at some later check.
+        val s = _state.value
+        if (s is UpdateState.Available && s.release.version == version && canInstall()) {
+            job = null
+            install()
         }
     }
 
@@ -297,6 +336,7 @@ class AndroidAppUpdater(
 
     private companion object {
         const val TAG = "NotesUpdate"
+        const val KEY_AFTER_PERMISSION = "installAfterPermission"
         /** Automatic checks (app comes to the foreground) at most once an hour; GitHub allows 60 requests/hour. */
         const val CHECK_INTERVAL_MS = 60 * 60 * 1000L
         /** A session without confirmation or result after this long counts as stuck ("Fortsetzen" gives it up); a silent install can take a while on slow devices. */

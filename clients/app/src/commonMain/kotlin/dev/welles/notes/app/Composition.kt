@@ -30,7 +30,7 @@ import dev.welles.notes.feature.stickies.stickiesModule
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
-import org.koin.compose.getKoin
+import org.koin.mp.KoinPlatformTools
 import org.koin.core.module.Module
 import org.koin.core.module.dsl.viewModelOf
 import org.koin.dsl.bind
@@ -107,7 +107,6 @@ private object NoNavigation : Navigator {
 
 @Composable
 private fun StartupErrorScreen(error: Throwable) {
-    val koin = getKoin()
     Surface(Modifier.fillMaxSize()) {
         Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             val newer = error.newerDatabase()
@@ -115,7 +114,8 @@ private fun StartupErrorScreen(error: Throwable) {
                 Text("Update nötig", style = MaterialTheme.typography.headlineSmall)
                 Text("Datenbank v${newer.found} > v${NotesDatabase.VERSION}")
                 // Self-update (Android release builds), if available
-                val update = remember { koin.getOrNull<AppUpdateSection>() }
+                // Koin may be missing if starting it was what failed (desktop).
+                val update = remember { KoinPlatformTools.defaultContext().getOrNull()?.getOrNull<AppUpdateSection>() }
                 update?.Content(NoNavigation)
             } else {
                 Text("Notes kann nicht starten", style = MaterialTheme.typography.headlineSmall)
