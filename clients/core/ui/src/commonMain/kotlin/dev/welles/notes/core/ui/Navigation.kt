@@ -10,6 +10,8 @@ class NavStack(start: String) : Navigator {
     val canGoBack: Boolean get() = entries.size > 1
 
     override fun navigate(route: String) {
+        // e.g. a top bar icon leading to settings while settings is shown
+        if (route == current) return
         entries.add(route)
     }
 

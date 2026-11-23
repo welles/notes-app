@@ -64,8 +64,12 @@ class AndroidAppUpdater(
     @Volatile private var committedAt = 0L
 
     init {
-        // APKs of earlier updates (installed or abandoned)
-        scope.launch { dir.listFiles()?.forEach { it.delete() } }
+        // APKs and installer sessions of earlier processes (installed, abandoned, or the process died meanwhile)
+        scope.launch {
+            dir.listFiles()?.forEach { it.delete() }
+            val installer = context.packageManager.packageInstaller
+            installer.mySessions.filter { it.sessionId != sessionId }.forEach { runCatching { installer.abandonSession(it.sessionId) } }
+        }
     }
 
     override fun check() = launch { checkNow(manual = true) }
