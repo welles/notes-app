@@ -14,6 +14,15 @@
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/sticky_pinned_widget" />
         </receiver>
         <activity
+            android:name="dev.welles.notes.feature.stickies.widget.PinnedStickiesWidgetConfigActivity"
+            android:exported="true"
+            android:label="Angepinnte Post-its"
+            android:theme="@style/Theme.Notes">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+            </intent-filter>
+        </activity>
+        <activity
             android:name="dev.welles.notes.feature.stickies.widget.SingleStickyWidgetConfigActivity"
             android:exported="true"
             android:label="Post-it auswählen"

@@ -26,11 +26,13 @@ import androidx.glance.layout.Box
 import androidx.glance.layout.Column
 import androidx.glance.layout.Row
 import androidx.glance.layout.Spacer
+import androidx.glance.layout.fillMaxHeight
 import androidx.glance.layout.fillMaxSize
 import androidx.glance.layout.fillMaxWidth
 import androidx.glance.layout.height
 import androidx.glance.layout.padding
 import androidx.glance.layout.size
+import androidx.glance.layout.width
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
@@ -48,7 +50,9 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import dev.welles.notes.core.model.Contexts
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
@@ -58,9 +62,33 @@ import org.koin.core.component.inject
 
 private val NoteText = ColorProvider(NoteColors.text)
 
-/** Which post-it a single widget shows – device-local (core_local_setting), never synchronized. */
+/** Text directly on the wallpaper (transparent background): light, like the launcher's own labels. */
+private val OnWallpaper = ColorProvider(Color.White)
+private val OnWallpaperVariant = ColorProvider(Color(0xDDFFFFFF))
+
+/** Per-widget settings – device-local (core_local_setting), never synchronized. */
 internal object WidgetConfig {
+    /** Which post-it a single widget shows. */
     fun key(appWidgetId: Int) = "widget.sticky.$appWidgetId"
+
+    /** "true" if the widget's background is transparent (absent = opaque). */
+    fun transparentKey(appWidgetId: Int) = "widget.transparent.$appWidgetId"
+
+    fun observeTransparent(settings: LocalSettingsDao, appWidgetId: Int): Flow<Boolean> =
+        settings.observe(transparentKey(appWidgetId)).map { it == "true" }.distinctUntilChanged()
+
+    suspend fun isTransparent(settings: LocalSettingsDao, appWidgetId: Int): Boolean =
+        settings.get(transparentKey(appWidgetId)) == "true"
+
+    suspend fun setTransparent(settings: LocalSettingsDao, appWidgetId: Int, transparent: Boolean) {
+        if (transparent) settings.put(LocalSetting(transparentKey(appWidgetId), "true")) else settings.remove(transparentKey(appWidgetId))
+    }
+
+    /** Widgets removed from the home screen leave no settings behind. */
+    suspend fun remove(settings: LocalSettingsDao, appWidgetId: Int) {
+        settings.remove(key(appWidgetId))
+        settings.remove(transparentKey(appWidgetId))
+    }
 }
 
 private fun appIntent(context: Context, configure: Intent.() -> Unit): Intent =
@@ -75,6 +103,9 @@ class SingleStickyWidget : GlanceAppWidget(), KoinComponent {
     private val settings: LocalSettingsDao by inject()
 
     override val sizeMode = SizeMode.Exact
+
+    override suspend fun onDelete(context: Context, glanceId: GlanceId) =
+        WidgetConfig.remove(settings, GlanceAppWidgetManager(context).getAppWidgetId(glanceId))
 
     sealed interface State {
         data class Show(val sticky: Sticky) : State
@@ -98,41 +129,56 @@ class SingleStickyWidget : GlanceAppWidget(), KoinComponent {
                     }
                 }
             }
+        val transparent = WidgetConfig.observeTransparent(settings, appWidgetId)
         val initial = states.first()
+        val initialTransparent = transparent.first()
         provideContent {
             val state by states.collectAsState(initial)
-            GlanceTheme { Content(context, state) }
+            val isTransparent by transparent.collectAsState(initialTransparent)
+            GlanceTheme { Content(context, state, isTransparent) }
         }
     }
 
     @Composable
-    private fun Content(context: Context, state: State) {
+    private fun Content(context: Context, state: State, transparent: Boolean) {
         when (state) {
             is State.Show -> {
                 val s = state.sticky
-                Column(
-                    GlanceModifier.fillMaxSize().cornerRadius(16.dp).background(NoteColors.background(s.color)).padding(12.dp)
-                        .clickable(actionStartActivity(appIntent(context) { putExtra(AppIntents.EXTRA_OPEN_STICKY, s.id) })),
-                ) {
-                    val (heading, body) = s.preview()
-                    heading?.let { Text(it, style = TextStyle(fontWeight = FontWeight.Bold, fontSize = 15.sp, color = NoteText), maxLines = 2) }
-                    if (body.isNotEmpty()) Text(body, style = TextStyle(fontSize = 14.sp, color = NoteText))
+                val open = actionStartActivity(appIntent(context) { putExtra(AppIntents.EXTRA_OPEN_STICKY, s.id) })
+                if (transparent) {
+                    // Without the paper, a narrow strip in the post-it's colour keeps it recognisable.
+                    Row(GlanceModifier.fillMaxSize().padding(8.dp).clickable(open)) {
+                        Box(GlanceModifier.width(4.dp).fillMaxHeight().cornerRadius(2.dp).background(NoteColors.accent(s.color))) {}
+                        Column(GlanceModifier.defaultWeight().fillMaxHeight().padding(start = 8.dp)) { StickyText(s, OnWallpaper) }
+                    }
+                } else {
+                    Column(GlanceModifier.fillMaxSize().cornerRadius(16.dp).background(NoteColors.background(s.color)).padding(12.dp).clickable(open)) {
+                        StickyText(s, NoteText)
+                    }
                 }
             }
-            State.Deleted -> Empty(context, "Gelöscht")
-            is State.OtherContext -> Empty(context, "Anderer Kontext")
-            State.NotConfigured -> Empty(context, "Kein Post-it")
+            State.Deleted -> Empty(context, "Gelöscht", transparent)
+            is State.OtherContext -> Empty(context, "Anderer Kontext", transparent)
+            State.NotConfigured -> Empty(context, "Kein Post-it", transparent)
         }
     }
 
     @Composable
-    private fun Empty(context: Context, title: String) {
+    private fun StickyText(s: Sticky, color: ColorProvider) {
+        val (heading, body) = s.preview()
+        heading?.let { Text(it, style = TextStyle(fontWeight = FontWeight.Bold, fontSize = 15.sp, color = color), maxLines = 2) }
+        if (body.isNotEmpty()) Text(body, style = TextStyle(fontSize = 14.sp, color = color))
+    }
+
+    @Composable
+    private fun Empty(context: Context, title: String, transparent: Boolean) {
+        val frame = GlanceModifier.fillMaxSize()
         Column(
-            GlanceModifier.fillMaxSize().cornerRadius(16.dp).background(Color(0xFFE3E3E3)).padding(12.dp)
+            (if (transparent) frame else frame.cornerRadius(16.dp).background(Color(0xFFE3E3E3))).padding(12.dp)
                 .clickable(actionStartActivity(appIntent(context) {})),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(title, style = TextStyle(fontWeight = FontWeight.Medium, color = NoteText))
+            Text(title, style = TextStyle(fontWeight = FontWeight.Medium, color = if (transparent) OnWallpaper else NoteText))
         }
     }
 }
@@ -141,30 +187,42 @@ class SingleStickyWidget : GlanceAppWidget(), KoinComponent {
 class PinnedStickiesWidget : GlanceAppWidget(), KoinComponent {
     private val repository: StickyRepository by inject()
     private val contexts: ContextRepository by inject()
+    private val settings: LocalSettingsDao by inject()
 
     override val sizeMode = SizeMode.Exact
 
+    override suspend fun onDelete(context: Context, glanceId: GlanceId) =
+        WidgetConfig.remove(settings, GlanceAppWidgetManager(context).getAppWidgetId(glanceId))
+
     @OptIn(ExperimentalCoroutinesApi::class)
     override suspend fun provideGlance(context: Context, id: GlanceId) {
+        val appWidgetId = GlanceAppWidgetManager(context).getAppWidgetId(id)
         val data = combine(contexts.contexts, contexts.activeContextId) { list, active ->
             list.firstOrNull { it.id == (active ?: Contexts.DEFAULT_ID) } ?: list.firstOrNull { it.isDefault }
         }.flatMapLatest { ctx ->
             if (ctx == null) flowOf("" to emptyList()) else repository.observePinned(ctx.id).map { ctx.name to it }
         }
+        val transparent = WidgetConfig.observeTransparent(settings, appWidgetId)
         val initial = data.first()
+        val initialTransparent = transparent.first()
         provideContent {
             val (name, pinned) = data.collectAsState(initial).value
-            GlanceTheme { Content(context, name, pinned) }
+            val isTransparent by transparent.collectAsState(initialTransparent)
+            GlanceTheme { Content(context, name, pinned, isTransparent) }
         }
     }
 
     @Composable
-    private fun Content(context: Context, contextName: String, pinned: List<Sticky>) {
-        Column(GlanceModifier.fillMaxSize().cornerRadius(20.dp).background(GlanceTheme.colors.widgetBackground).padding(8.dp)) {
+    private fun Content(context: Context, contextName: String, pinned: List<Sticky>, transparent: Boolean) {
+        // Transparent: only the frame disappears, the post-its keep their paper colour.
+        val frame = GlanceModifier.fillMaxSize().cornerRadius(20.dp)
+        val onFrame = if (transparent) OnWallpaper else GlanceTheme.colors.onSurface
+        val onFrameVariant = if (transparent) OnWallpaperVariant else GlanceTheme.colors.onSurfaceVariant
+        Column((if (transparent) frame else frame.background(GlanceTheme.colors.widgetBackground)).padding(8.dp)) {
             Row(GlanceModifier.fillMaxWidth().padding(start = 4.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                 Column(GlanceModifier.defaultWeight().clickable(actionStartActivity(appIntent(context) {}))) {
-                    Text("Angepinnt", style = TextStyle(fontWeight = FontWeight.Bold, color = GlanceTheme.colors.onSurface))
-                    Text(contextName, style = TextStyle(fontSize = 12.sp, color = GlanceTheme.colors.onSurfaceVariant))
+                    Text("Angepinnt", style = TextStyle(fontWeight = FontWeight.Bold, color = onFrame))
+                    Text(contextName, style = TextStyle(fontSize = 12.sp, color = onFrameVariant))
                 }
                 Box(
                     GlanceModifier.size(40.dp).cornerRadius(20.dp).background(GlanceTheme.colors.primary)
@@ -173,7 +231,7 @@ class PinnedStickiesWidget : GlanceAppWidget(), KoinComponent {
                 ) { Text("+", style = TextStyle(fontSize = 22.sp, fontWeight = FontWeight.Bold, color = GlanceTheme.colors.onPrimary)) }
             }
             if (pinned.isEmpty()) {
-                Text("—", modifier = GlanceModifier.padding(4.dp), style = TextStyle(color = GlanceTheme.colors.onSurfaceVariant))
+                Text("—", modifier = GlanceModifier.padding(4.dp), style = TextStyle(color = onFrameVariant))
             } else {
                 LazyColumn {
                     items(pinned, itemId = { it.id.hashCode().toLong() }) { s ->

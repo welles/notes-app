@@ -92,6 +92,7 @@ Kurz und knapp, neueste unten.
 - **Widget-Daten als Flows innerhalb von `provideContent`**: Glance hält nach dem Platzieren eine Session offen; vorher gelesene Daten würden bei `update()` nicht neu geladen.
 - **Aktualisierung**: (1) ein Beobachter auf die Post-it-Tabelle und den aktiven Kontext (gedrosselt, 500 ms), (2) zusätzlich ein `SyncObserver`, der innerhalb des Syncs aktualisiert – auch im WorkManager-Job, bevor der Prozess beendet werden kann.
 - **Einzel-Widget-Konfiguration** (welches Post-it) liegt gerätelokal in `core_local_setting` (`widget.sticky.<appWidgetId>`).
+- **Transparenter Hintergrund pro Widget** (`widget.transparent.<appWidgetId>`, ebenfalls gerätelokal), wählbar beim Platzieren bzw. über „Widget bearbeiten“. Beim Übersichts-Widget verschwindet nur der Rahmen, die Post-its behalten ihre Papierfarbe; beim Einzel-Widget steht der Text weiß direkt auf dem Hintergrundbild, ein schmaler Streifen in der Post-it-Farbe bleibt. Die Konfiguration des Übersichts-Widgets ist optional (`configuration_optional`, ab Android 12). Beim Entfernen eines Widgets werden seine Einstellungen gelöscht (`GlanceAppWidget.onDelete`).
 - **Widget öffnet die App über den Launch-Intent** mit Extras (`AppIntents`), damit das Feature-Modul `MainActivity` nicht kennen muss.
 - **Erprobt**: Web-Änderung → periodischer WorkManager-Sync → Widget zeigt neue Farbe und neuen Text, ohne dass die App geöffnet war.
 

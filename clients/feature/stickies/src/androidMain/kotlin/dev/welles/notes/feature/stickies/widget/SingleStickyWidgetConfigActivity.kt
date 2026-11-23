@@ -44,7 +44,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import org.koin.android.ext.android.inject
 
-/** Shown when placing a single post-it widget: choose the post-it (from the active context). */
+/** Shown when placing (or reconfiguring) a single post-it widget: choose the post-it (from the active context) and the background. */
 class SingleStickyWidgetConfigActivity : ComponentActivity() {
     private val repository: StickyRepository by inject()
     private val contexts: ContextRepository by inject()
@@ -61,8 +61,12 @@ class SingleStickyWidgetConfigActivity : ComponentActivity() {
         setContent {
             NotesTheme {
                 var stickies by remember { mutableStateOf<List<Sticky>?>(null) }
+                var transparent by remember { mutableStateOf(false) }
                 val scope = rememberCoroutineScope()
-                LaunchedEffect(Unit) { stickies = repository.observe(contexts.activeIdOrDefault()).first() }
+                LaunchedEffect(Unit) {
+                    transparent = WidgetConfig.isTransparent(settings, appWidgetId)
+                    stickies = repository.observe(contexts.activeIdOrDefault()).first()
+                }
                 Surface(Modifier.fillMaxSize()) {
                     LazyColumn(
                         Modifier.windowInsetsPadding(WindowInsets.safeDrawing),
@@ -70,6 +74,7 @@ class SingleStickyWidgetConfigActivity : ComponentActivity() {
                         verticalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
                         item { Text("Post-it", style = MaterialTheme.typography.titleLarge) }
+                        item { TransparentBackgroundSwitch(transparent) { transparent = it } }
                         if (stickies?.isEmpty() == true) item { Text("Keine Post-its") }
                         items(stickies.orEmpty(), key = { it.id }) { s ->
                             Card(
@@ -77,6 +82,7 @@ class SingleStickyWidgetConfigActivity : ComponentActivity() {
                                 modifier = Modifier.fillMaxWidth().clickable {
                                     scope.launch {
                                         saveWidgetSticky(settings, appWidgetId, s.id)
+                                        WidgetConfig.setTransparent(settings, appWidgetId, transparent)
                                         val glanceId = GlanceAppWidgetManager(this@SingleStickyWidgetConfigActivity).getGlanceIdBy(appWidgetId)
                                         SingleStickyWidget().update(this@SingleStickyWidgetConfigActivity, glanceId)
                                         setResult(RESULT_OK, Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId))
