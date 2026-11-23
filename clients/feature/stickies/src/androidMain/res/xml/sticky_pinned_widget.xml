@@ -10,4 +10,6 @@
     android:widgetCategory="home_screen"
     android:updatePeriodMillis="0"
     android:initialLayout="@layout/glance_default_loading_layout"
+    android:configure="dev.welles.notes.feature.stickies.widget.PinnedStickiesWidgetConfigActivity"
+    android:widgetFeatures="reconfigurable|configuration_optional"
     android:description="@string/widget_pinned_description" />
