@@ -66,6 +66,7 @@ class AppUpdateSection(private val updater: AppUpdater) : SettingsSection {
                 when (val s = state) {
                     is UpdateState.Available -> Button(onClick = updater::install) { Text("Aktualisieren") }
                     is UpdateState.NeedsPermission -> Button(onClick = updater::install) { Text("Erlauben") }
+                    is UpdateState.Installing -> Button(onClick = updater::install) { Text("Fortsetzen") }
                     is UpdateState.Failed -> if (s.release != null) Button(onClick = updater::install) { Text("Erneut versuchen") }
                     else -> {}
                 }
