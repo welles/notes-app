@@ -32,6 +32,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -77,11 +79,18 @@ class AndroidAppUpdater(
     @Volatile private var readyFile: File? = null
 
     init {
-        // APKs and installer sessions of earlier processes (installed, abandoned, or the process died meanwhile)
+        // APKs and installer sessions of earlier processes (installed, abandoned, or the process died meanwhile).
+        // A recently committed session is kept: its confirmation may still be on screen while this process was
+        // restarted (widget, WorkManager). Its result then no longer reaches us, but the dialog keeps working.
         scope.launch {
             dir.listFiles()?.forEach { it.delete() }
             val installer = context.packageManager.packageInstaller
-            installer.mySessions.filter { it.sessionId != sessionId }.forEach { runCatching { installer.abandonSession(it.sessionId) } }
+            val committed = prefs.getInt(KEY_SESSION, -1).takeIf {
+                System.currentTimeMillis() - prefs.getLong(KEY_SESSION_AT, 0) < KEEP_COMMITTED_MS
+            }
+            installer.mySessions
+                .filter { it.sessionId != sessionId && it.sessionId != committed }
+                .forEach { runCatching { installer.abandonSession(it.sessionId) } }
         }
     }
 
@@ -114,17 +123,15 @@ class AndroidAppUpdater(
 
     override fun install() {
         if (_state.value is UpdateState.Installing) return resumeInstallation()
-        (_state.value as? UpdateState.Ready)?.let { ready ->
-            val file = readyFile
-            if (file != null && file.exists()) return installDownloaded(ready.release, file)
-            _state.value = UpdateState.Available(ready.release)
-        }
         val release = when (val s = _state.value) {
+            is UpdateState.Ready -> s.release
             is UpdateState.Available -> s.release
             is UpdateState.NeedsPermission -> s.release
             is UpdateState.Failed -> s.release
             else -> null
         } ?: return
+        // Already downloaded and verified (also after "Abbrechen" in the dialog or a failed install): no new download.
+        downloadedApk(release)?.let { return installDownloaded(release, it) }
         // A running automatic check must not swallow the tap.
         if (job?.isActive == true) { if (jobIsCheck) job?.cancel() else return }
         if (!canInstall()) {
@@ -153,16 +160,37 @@ class AndroidAppUpdater(
         }
     }
 
-    private fun installDownloaded(release: AppRelease, file: File) = launch {
-        try {
-            _state.value = UpdateState.Installing(release)
-            commit(file)
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            Log.w(TAG, "Install failed", e)
-            _state.value = UpdateState.Failed(e.message ?: e.toString(), release)
+    /**
+     * Not through [launch]: Ready is published from inside the download job, which may still be finishing.
+     * Installing is set right away, so a second tap goes to [resumeInstallation].
+     */
+    private fun installDownloaded(release: AppRelease, file: File) {
+        if (job?.isActive == true && jobIsCheck) job?.cancel()
+        _state.value = UpdateState.Installing(release)
+        jobIsCheck = false
+        job = scope.launch {
+            try {
+                commit(file)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.w(TAG, "Install failed", e)
+                _state.value = UpdateState.Failed(e.message ?: e.toString(), release)
+            }
         }
+    }
+
+    /** The verified APK of [release], if it is still there. */
+    private fun downloadedApk(release: AppRelease): File? =
+        readyFile?.takeIf { it.name == "notes-${release.version}.apk" && it.exists() }
+
+    /** Back from an install that did not happen: offer the downloaded APK again if there is one. */
+    private fun notInstalled(release: AppRelease): UpdateState =
+        if (downloadedApk(release) != null) UpdateState.Ready(release) else UpdateState.Available(release)
+
+    private fun forgetSession() {
+        sessionId = null
+        prefs.edit { remove(KEY_SESSION); remove(KEY_SESSION_AT) }
     }
 
     /** Shows the confirmation again, or gives up a session that never asked for one. */
@@ -179,8 +207,8 @@ class AndroidAppUpdater(
             if (System.currentTimeMillis() - committedAt < STUCK_AFTER_MS) return
             runCatching { installer.abandonSession(id) }
         }
-        sessionId = null
-        _state.value = UpdateState.Available(release)
+        forgetSession()
+        _state.value = notInstalled(release)
     }
 
     /** The installer needs a confirmation (from [UpdateInstallReceiver]). Blocked while Notes is in the background; [checkIfDue] retries. */
@@ -200,13 +228,13 @@ class AndroidAppUpdater(
     internal fun onInstallResult(session: Int, status: Int, message: String?) {
         // Late result of a session given up earlier
         if (session != sessionId) return
-        sessionId = null
+        forgetSession()
         confirmation = null
         confirmationMissed = false
         val release = (_state.value as? UpdateState.Installing)?.release ?: return
         _state.value = when (status) {
             PackageInstaller.STATUS_SUCCESS -> UpdateState.UpToDate
-            PackageInstaller.STATUS_FAILURE_ABORTED -> UpdateState.Available(release)
+            PackageInstaller.STATUS_FAILURE_ABORTED -> notInstalled(release)
             PackageInstaller.STATUS_FAILURE_CONFLICT -> UpdateState.Failed("Signatur passt nicht zur installierten App", release)
             PackageInstaller.STATUS_FAILURE_INCOMPATIBLE -> UpdateState.Failed(message ?: "Nicht kompatibel mit diesem Gerät", release)
             else -> UpdateState.Failed(message ?: "Installation fehlgeschlagen ($status)", release)
@@ -226,9 +254,12 @@ class AndroidAppUpdater(
         val previous = _state.value
         // An automatic check keeps a known update visible while it runs.
         if (manual || releaseOf(previous) == null) _state.value = UpdateState.Checking
-        _state.value = try {
+        val started = _state.value
+        var succeeded = false
+        val result = try {
             val release = AppReleases.latest(http)
             lastCheck = System.currentTimeMillis()
+            succeeded = true
             val ready = previous as? UpdateState.Ready
             when {
                 release == null || release.version <= versionCode -> UpdateState.UpToDate
@@ -247,14 +278,16 @@ class AndroidAppUpdater(
                 else -> previous
             }
         }
-        resumeAfterPermission()
+        // Cancelled by "Aktualisieren" (cancellation is cooperative) or overtaken: do not overwrite the new state.
+        currentCoroutineContext().ensureActive()
+        if (!_state.compareAndSet(started, result)) return
+        if (succeeded) resumeAfterPermission()
     }
 
     /** After a successful check: continue an install the permission screen interrupted in an earlier process. */
     private fun resumeAfterPermission() {
         val version = resumeVersion ?: return
         resumeVersion = null
-        // Only right after the return from the permission screen, not at some later check.
         val s = _state.value
         if (s is UpdateState.Available && s.release.version == version && canInstall()) {
             job = null
@@ -326,10 +359,11 @@ class AndroidAppUpdater(
                 val pending = PendingIntent.getBroadcast(context, id, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE)
                 session.commit(pending.intentSender)
                 committedAt = System.currentTimeMillis()
+                prefs.edit { putInt(KEY_SESSION, id); putLong(KEY_SESSION_AT, committedAt) }
             }
         } catch (e: Exception) {
             runCatching { installer.abandonSession(id) }
-            sessionId = null
+            forgetSession()
             throw e
         }
     }
@@ -337,6 +371,10 @@ class AndroidAppUpdater(
     private companion object {
         const val TAG = "NotesUpdate"
         const val KEY_AFTER_PERMISSION = "installAfterPermission"
+        const val KEY_SESSION = "committedSession"
+        const val KEY_SESSION_AT = "committedSessionAt"
+        /** A committed session of an earlier process is left alone this long (its confirmation may be on screen). */
+        const val KEEP_COMMITTED_MS = 60 * 60 * 1000L
         /** Automatic checks (app comes to the foreground) at most once an hour; GitHub allows 60 requests/hour. */
         const val CHECK_INTERVAL_MS = 60 * 60 * 1000L
         /** A session without confirmation or result after this long counts as stuck ("Fortsetzen" gives it up); a silent install can take a while on slow devices. */
