@@ -33,7 +33,7 @@ jobs:
       - name: Android SDK components
         run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-37.0" "build-tools;36.0.0" "build-tools;37.0.0" > /dev/null
       - name: Tests (shared code on JVM, Room in-memory, contract + fixtures)
-        run: ./gradlew :core:model:desktopTest :app:desktopTest --continue
+        run: ./gradlew :core:model:desktopTest :core:sync:desktopTest :app:desktopTest --continue
       - name: Build Android debug + desktop
         run: ./gradlew :androidApp:assembleDebug :desktopApp:createDistributable
       - name: Room schemas are committed

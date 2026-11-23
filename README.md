@@ -86,7 +86,7 @@ Android-Debug-APK bauen und installieren:
 Tests (gemeinsamer Code läuft auf JVM; Room in-memory):
 
 ```bash
-./gradlew :core:model:desktopTest :app:desktopTest
+./gradlew :core:model:desktopTest :core:sync:desktopTest :app:desktopTest
 ```
 
 Room-Schemas liegen committed unter `clients/app/schemas/` (Grundlage für Migrationstests).
@@ -214,6 +214,10 @@ Siehe [Versionen und Releases](#versionen-und-releases). Die Action baut zum Tag
 1. Obtainium → *App hinzufügen* → URL `https://github.com/welles/notes-app`.
 2. Unter *Filter für APK-Dateien (Regex)*: `notes-.*\.apk`.
 3. Installieren. Spätere Tags erscheinen als Update; die Daten bleiben erhalten (gleicher Schlüssel, steigender `versionCode`).
+
+### Update aus der App
+
+Release-Builds suchen selbst nach Updates: beim Wechsel in den Vordergrund (höchstens einmal pro Stunde) und über *Einstellungen → App-Version → Nach Updates suchen*. Gibt es ein neueres Release, erscheint ein Download-Symbol in der App-Leiste; *Aktualisieren* lädt `notes-N.apk`, prüft Größe, SHA-256 (aus dem GitHub Release) und Paketnamen und startet die Installation. Android prüft die Signatur und fragt beim ersten Mal nach der Berechtigung „Unbekannte Apps installieren“ für Notes und danach nach einer Bestätigung. Ab Android 12 entfällt die Bestätigung, sobald Notes die installierte Version selbst installiert hat. Debug-Builds haben die Funktion nicht (anderer Schlüssel).
 
 ## Konfiguration (Server)
 
