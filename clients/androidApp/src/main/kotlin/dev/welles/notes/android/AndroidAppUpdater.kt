@@ -61,13 +61,14 @@ class AndroidAppUpdater(
     /** Session handed to the installer and its confirmation (relaunched if it could not be shown or was left with Home). */
     @Volatile private var sessionId: Int? = null
     @Volatile private var confirmation: Intent? = null
+    @Volatile private var committedAt = 0L
 
     init {
         // APKs of earlier updates (installed or abandoned)
         scope.launch { dir.listFiles()?.forEach { it.delete() } }
     }
 
-    override fun check() = launch { checkNow() }
+    override fun check() = launch { checkNow(manual = true) }
 
     override fun checkIfDue() {
         val s = _state.value
@@ -86,7 +87,7 @@ class AndroidAppUpdater(
             installAfterPermission = false
             if (s is UpdateState.NeedsPermission && canInstall()) return install()
         }
-        if (System.currentTimeMillis() - lastCheck >= CHECK_INTERVAL_MS) launch { checkNow() }
+        if (System.currentTimeMillis() - lastCheck >= CHECK_INTERVAL_MS) launch { checkNow(manual = false) }
     }
 
     override fun install() {
@@ -126,6 +127,8 @@ class AndroidAppUpdater(
     private fun resumeInstallation() {
         val release = (_state.value as? UpdateState.Installing)?.release ?: return
         confirmation?.let { return showConfirmation(it) }
+        // Still copying, waiting for the installer, or installing without confirmation: leave it alone.
+        if (job?.isActive == true || System.currentTimeMillis() - committedAt < STUCK_AFTER_MS) return
         sessionId?.let { id -> runCatching { context.packageManager.packageInstaller.abandonSession(id) } }
         sessionId = null
         _state.value = UpdateState.Available(release)
@@ -163,19 +166,24 @@ class AndroidAppUpdater(
 
     private fun canInstall() = context.packageManager.canRequestPackageInstalls()
 
-    private suspend fun checkNow() {
-        lastCheck = System.currentTimeMillis()
+    /** Only a successful check counts for the hourly interval; offline, the next foreground tries again. */
+    private suspend fun checkNow(manual: Boolean) {
         val previous = _state.value
         _state.value = UpdateState.Checking
         _state.value = try {
             val release = AppReleases.latest(http)
+            lastCheck = System.currentTimeMillis()
             if (release != null && release.version > versionCode) UpdateState.Available(release) else UpdateState.UpToDate
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
             Log.i(TAG, "Update check failed", e)
-            // An automatic check offline should not turn a known update into an error.
-            if (previous is UpdateState.Available) previous else UpdateState.Failed(e.message ?: e.toString())
+            // A failed check keeps a known update; only a manual check without one shows the error.
+            when {
+                releaseOf(previous) != null -> previous
+                manual -> UpdateState.Failed(e.message ?: e.toString())
+                else -> previous
+            }
         }
     }
 
@@ -242,6 +250,7 @@ class AndroidAppUpdater(
                 // Mutable: the installer adds status and confirmation intent as extras.
                 val pending = PendingIntent.getBroadcast(context, id, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE)
                 session.commit(pending.intentSender)
+                committedAt = System.currentTimeMillis()
             }
         } catch (e: Exception) {
             runCatching { installer.abandonSession(id) }
@@ -254,6 +263,8 @@ class AndroidAppUpdater(
         const val TAG = "NotesUpdate"
         /** Automatic checks (app comes to the foreground) at most once an hour; GitHub allows 60 requests/hour. */
         const val CHECK_INTERVAL_MS = 60 * 60 * 1000L
+        /** A session without confirmation or result after this long counts as stuck ("Fortsetzen" gives it up). */
+        const val STUCK_AFTER_MS = 30_000L
     }
 }
 
@@ -271,4 +282,13 @@ class UpdateInstallReceiver : BroadcastReceiver() {
         }
         updater?.onInstallResult(status, intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE))
     }
+}
+
+private fun releaseOf(state: UpdateState): AppRelease? = when (state) {
+    is UpdateState.Available -> state.release
+    is UpdateState.NeedsPermission -> state.release
+    is UpdateState.Downloading -> state.release
+    is UpdateState.Installing -> state.release
+    is UpdateState.Failed -> state.release
+    else -> null
 }
