@@ -100,12 +100,13 @@ class AndroidAppUpdater(
         } ?: return
         if (job?.isActive == true) return
         if (!canInstall()) {
-            installAfterPermission = true
-            _state.value = UpdateState.NeedsPermission(release)
-            context.startActivity(
-                Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, "package:${context.packageName}".toUri())
-                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-            )
+            // The settings screen may not exist on every device/profile.
+            val opened = runCatching {
+                context.startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, "package:${context.packageName}".toUri()).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            }.isSuccess
+            installAfterPermission = opened
+            _state.value = if (opened) UpdateState.NeedsPermission(release)
+            else UpdateState.Failed("Installation unbekannter Apps nicht erlaubt", release)
             return
         }
         installAfterPermission = false
@@ -127,15 +128,23 @@ class AndroidAppUpdater(
     private fun resumeInstallation() {
         val release = (_state.value as? UpdateState.Installing)?.release ?: return
         confirmation?.let { return showConfirmation(it) }
-        // Still copying, waiting for the installer, or installing without confirmation: leave it alone.
-        if (job?.isActive == true || System.currentTimeMillis() - committedAt < STUCK_AFTER_MS) return
-        sessionId?.let { id -> runCatching { context.packageManager.packageInstaller.abandonSession(id) } }
+        // Still copying the APK into the session: leave it alone.
+        if (job?.isActive == true) return
+        val installer = context.packageManager.packageInstaller
+        val id = sessionId
+        // A session that is gone ended without its result reaching us. One still there may be waiting for the
+        // installer or installing without confirmation (slow devices), so it is given up only after a while.
+        if (id != null && installer.getSessionInfo(id) != null) {
+            if (System.currentTimeMillis() - committedAt < STUCK_AFTER_MS) return
+            runCatching { installer.abandonSession(id) }
+        }
         sessionId = null
         _state.value = UpdateState.Available(release)
     }
 
     /** The installer needs a confirmation (from [UpdateInstallReceiver]). Blocked while Notes is in the background; [checkIfDue] retries. */
-    internal fun onConfirmationNeeded(intent: Intent) {
+    internal fun onConfirmationNeeded(session: Int, intent: Intent) {
+        if (session != sessionId) return
         confirmation = intent
         showConfirmation(intent)
     }
@@ -146,7 +155,9 @@ class AndroidAppUpdater(
     }
 
     /** Result of the installation session (from [UpdateInstallReceiver]). */
-    internal fun onInstallResult(status: Int, message: String?) {
+    internal fun onInstallResult(session: Int, status: Int, message: String?) {
+        // Late result of a session given up earlier
+        if (session != sessionId) return
         sessionId = null
         confirmation = null
         val release = (_state.value as? UpdateState.Installing)?.release ?: return
@@ -263,8 +274,8 @@ class AndroidAppUpdater(
         const val TAG = "NotesUpdate"
         /** Automatic checks (app comes to the foreground) at most once an hour; GitHub allows 60 requests/hour. */
         const val CHECK_INTERVAL_MS = 60 * 60 * 1000L
-        /** A session without confirmation or result after this long counts as stuck ("Fortsetzen" gives it up). */
-        const val STUCK_AFTER_MS = 30_000L
+        /** A session without confirmation or result after this long counts as stuck ("Fortsetzen" gives it up); a silent install can take a while on slow devices. */
+        const val STUCK_AFTER_MS = 2 * 60_000L
     }
 }
 
@@ -273,14 +284,15 @@ class UpdateInstallReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val status = intent.getIntExtra(PackageInstaller.EXTRA_STATUS, PackageInstaller.STATUS_FAILURE)
         val updater = GlobalContext.getOrNull()?.getOrNull<AppUpdater>() as? AndroidAppUpdater
+        val session = intent.getIntExtra(PackageInstaller.EXTRA_SESSION_ID, -1)
         if (status == PackageInstaller.STATUS_PENDING_USER_ACTION) {
             val confirm = if (Build.VERSION.SDK_INT >= 33) intent.getParcelableExtra(Intent.EXTRA_INTENT, Intent::class.java)
             else @Suppress("DEPRECATION") intent.getParcelableExtra(Intent.EXTRA_INTENT)
             // Not exported: the intent comes from the system installer via our own PendingIntent.
-            if (confirm != null) updater?.onConfirmationNeeded(confirm)
+            if (confirm != null) updater?.onConfirmationNeeded(session, confirm)
             return
         }
-        updater?.onInstallResult(status, intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE))
+        updater?.onInstallResult(session, status, intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE))
     }
 }
 

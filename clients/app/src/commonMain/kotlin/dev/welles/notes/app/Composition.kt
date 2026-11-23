@@ -8,6 +8,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.room.RoomDatabase
@@ -19,14 +20,17 @@ import dev.welles.notes.core.data.EntityActions
 import dev.welles.notes.core.data.LocalEntityHandler
 import dev.welles.notes.core.data.LocalStore
 import dev.welles.notes.core.data.TransactionRunner
+import dev.welles.notes.core.ui.AppUpdateSection
 import dev.welles.notes.core.ui.ContextsViewModel
 import dev.welles.notes.core.ui.NotesShell
 import dev.welles.notes.core.ui.NotesTheme
+import dev.welles.notes.core.ui.Navigator
 import dev.welles.notes.core.ui.ShellViewModel
 import dev.welles.notes.feature.stickies.stickiesModule
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
+import org.koin.compose.getKoin
 import org.koin.core.module.Module
 import org.koin.core.module.dsl.viewModelOf
 import org.koin.dsl.bind
@@ -91,13 +95,23 @@ fun NotesApp(
     }
 }
 
+/** The error screen has no navigation; sections shown there must not need it. */
+private object NoNavigation : Navigator {
+    override fun navigate(route: String) {}
+    override fun back() {}
+}
+
 @Composable
 private fun StartupErrorScreen(error: Throwable) {
+    val koin = getKoin()
     Surface(Modifier.fillMaxSize()) {
         Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             if (error is NewerDatabaseException) {
                 Text("Update nötig", style = MaterialTheme.typography.headlineSmall)
                 Text("Datenbank v${error.found} > v${NotesDatabase.VERSION}")
+                // Self-update (Android release builds), if available
+                val update = remember { koin.getOrNull<AppUpdateSection>() }
+                update?.Content(NoNavigation)
             } else {
                 Text("Notes kann nicht starten", style = MaterialTheme.typography.headlineSmall)
                 Text(error.message ?: error.toString())
